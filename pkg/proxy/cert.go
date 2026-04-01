@@ -96,7 +96,7 @@ func LoadOrCreateCA(caKeyFile, caCertFile string) (*x509.Certificate, *rsa.Priva
 
 	keyDir, _ = filepath.Split(caCertFile)
 	if keyDir != "" {
-		if _, err := os.Stat("keyDir"); os.IsNotExist(err) {
+		if _, err := os.Stat(keyDir); os.IsNotExist(err) {
 			if err := os.MkdirAll(keyDir, 0o755); err != nil {
 				return nil, nil, fmt.Errorf("proxy: could not create directory for CA cert: %w", err)
 			}
@@ -232,8 +232,8 @@ func (c *CertConfig) cert(hostname string) (*tls.Certificate, error) {
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		NotBefore:             time.Now().Add(-24 * time.Hour),
-		NotAfter:              time.Now().Add(24 * time.Hour),
+		NotBefore:             time.Now().Add(-1 * time.Hour),
+		NotAfter:              time.Now().Add(30 * 24 * time.Hour),
 	}
 
 	if ip := net.ParseIP(hostname); ip != nil {
