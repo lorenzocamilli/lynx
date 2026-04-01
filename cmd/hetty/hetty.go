@@ -264,7 +264,7 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 	if cmd.chrome {
 		ctx, cancel := chrome.NewExecAllocator(ctx, chrome.Config{
 			ProxyServer:      url,
-			ProxyBypassHosts: []string{url},
+			ProxyBypassHosts: []string{strings.TrimPrefix(url, "http://")},
 		})
 		defer cancel()
 
