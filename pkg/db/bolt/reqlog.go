@@ -9,6 +9,7 @@ import (
 
 	"github.com/oklog/ulid"
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 
 	"github.com/dstotijn/hetty/pkg/reqlog"
 	"github.com/dstotijn/hetty/pkg/scope"
@@ -194,7 +195,12 @@ func (db *Database) ClearRequestLogs(ctx context.Context, projectID ulid.ULID) e
 			return fmt.Errorf("failed to get project bucket: %w", err)
 		}
 
-		return pb.DeleteBucket(reqLogsBucketName)
+		if err := pb.DeleteBucket(reqLogsBucketName); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
+			return err
+		}
+
+		_, err = pb.CreateBucket(reqLogsBucketName)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("bolt: failed to commit transaction: %w", err)
