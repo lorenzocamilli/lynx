@@ -175,6 +175,8 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 		if err != nil {
 			svc.logger.Errorw("Failed to store request log.",
 				"error", err)
+			ctx := context.WithValue(req.Context(), LogBypassedKey, true)
+			*req = *req.WithContext(ctx)
 			return
 		}
 
