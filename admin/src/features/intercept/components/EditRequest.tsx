@@ -1,3 +1,4 @@
+import { Reference } from "@apollo/client";
 import CancelIcon from "@mui/icons-material/Cancel";
 import DownloadIcon from "@mui/icons-material/Download";
 import SendIcon from "@mui/icons-material/Send";
@@ -15,7 +16,6 @@ import ResponseTabs from "lib/components/ResponseTabs";
 import UrlBar, { HttpMethod, HttpProto, httpProtoMap } from "lib/components/UrlBar";
 import {
   HttpProtocol,
-  HttpRequest,
   useCancelRequestMutation,
   useCancelResponseMutation,
   useGetInterceptedRequestQuery,
@@ -157,7 +157,7 @@ function EditRequest(): JSX.Element {
         update(cache) {
           cache.modify({
             fields: {
-              interceptedRequests(existing: HttpRequest[], { readField }) {
+              interceptedRequests(existing: readonly Reference[], { readField }) {
                 return existing.filter((ref) => interceptedReq.id !== readField("id", ref));
               },
             },
@@ -182,7 +182,7 @@ function EditRequest(): JSX.Element {
         update(cache) {
           cache.modify({
             fields: {
-              interceptedRequests(existing: HttpRequest[], { readField }) {
+              interceptedRequests(existing: readonly Reference[], { readField }) {
                 return existing.filter((ref) => interceptedRes.id !== readField("id", ref));
               },
             },
@@ -205,7 +205,7 @@ function EditRequest(): JSX.Element {
       update(cache) {
         cache.modify({
           fields: {
-            interceptedRequests(existing: HttpRequest[], { readField }) {
+            interceptedRequests(existing: readonly Reference[], { readField }) {
               return existing.filter((ref) => interceptedReq.id !== readField("id", ref));
             },
           },
@@ -227,7 +227,7 @@ function EditRequest(): JSX.Element {
       update(cache) {
         cache.modify({
           fields: {
-            interceptedRequests(existing: HttpRequest[], { readField }) {
+            interceptedRequests(existing: readonly Reference[], { readField }) {
               return existing.filter((ref) => interceptedRes.id !== readField("id", ref));
             },
           },

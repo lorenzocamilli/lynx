@@ -1,7 +1,7 @@
 import { useApolloClient } from "@apollo/client";
 import AddIcon from "@mui/icons-material/Add";
-import { Alert } from "@mui/lab";
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
