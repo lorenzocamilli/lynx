@@ -1,7 +1,7 @@
 import AddIcon from "@mui/icons-material/Add";
 import { Alert, Box, Button, Fab, Tooltip, Typography, useTheme } from "@mui/material";
 import { useRouter } from "next/router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { KeyValuePair } from "lib/components/KeyValuePair";
 import RequestTabs from "lib/components/RequestTabs";
@@ -76,25 +76,27 @@ function EditRequest(): JSX.Element {
   const getReqResult = useGetSenderRequestQuery({
     variables: { id: reqId as string },
     skip: reqId === undefined,
-    onCompleted: ({ senderRequest }) => {
-      if (!senderRequest) {
-        return;
-      }
-
-      setURL(senderRequest.url);
-      setMethod(senderRequest.method);
-      setBody(senderRequest.body || "");
-
-      const newQueryParams = queryParamsFromURL(senderRequest.url);
-      // Push empty row.
-      newQueryParams.push({ key: "", value: "" });
-      setQueryParams(newQueryParams);
-
-      const newHeaders = senderRequest.headers || [];
-      setHeaders([...newHeaders.map(({ key, value }) => ({ key, value })), { key: "", value: "" }]);
-      setResponse(senderRequest.response);
-    },
   });
+
+  useEffect(() => {
+    const senderRequest = getReqResult.data?.senderRequest;
+    if (!senderRequest) {
+      return;
+    }
+
+    setURL(senderRequest.url);
+    setMethod(senderRequest.method);
+    setBody(senderRequest.body || "");
+
+    const newQueryParams = queryParamsFromURL(senderRequest.url);
+    // Push empty row.
+    newQueryParams.push({ key: "", value: "" });
+    setQueryParams(newQueryParams);
+
+    const newHeaders = senderRequest.headers || [];
+    setHeaders([...newHeaders.map(({ key, value }) => ({ key, value })), { key: "", value: "" }]);
+    setResponse(senderRequest.response);
+  }, [getReqResult.data]);
 
   const [createOrUpdateRequest, createResult] = useCreateOrUpdateSenderRequestMutation();
   const [sendRequest, sendResult] = useSendRequestMutation();

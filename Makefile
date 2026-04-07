@@ -10,6 +10,7 @@ build-admin:
 	cd admin && \
 	npm install --legacy-peer-deps && \
 	npm run export && \
+	rm -rf ../cmd/hetty/admin && \
 	mv dist ../cmd/hetty/admin
 
 .PHONY: clean

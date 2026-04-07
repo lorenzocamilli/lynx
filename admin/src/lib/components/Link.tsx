@@ -1,6 +1,6 @@
 import MuiLink, { LinkProps as MuiLinkProps } from "@mui/material/Link";
 import { styled } from "@mui/material/styles";
-import clsx from "clsx";
+import { clsx } from "clsx";
 import NextLink, { LinkProps as NextLinkProps } from "next/link";
 import { useRouter } from "next/router";
 import * as React from "react";
@@ -9,33 +9,31 @@ import * as React from "react";
 const Anchor = styled("a")({});
 
 interface NextLinkComposedProps
-  extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href">,
-    Omit<NextLinkProps, "href" | "as"> {
+  extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href">, Omit<NextLinkProps, "href" | "as"> {
   to: NextLinkProps["href"];
   linkAs?: NextLinkProps["as"];
 }
 
-export const NextLinkComposed = React.forwardRef<HTMLAnchorElement, NextLinkComposedProps>(function NextLinkComposed(
-  props,
-  ref
-) {
-  const { to, linkAs, replace, scroll, shallow, prefetch, ...other } = props;
+export const NextLinkComposed = React.forwardRef<HTMLAnchorElement, NextLinkComposedProps>(
+  function NextLinkComposed(props, ref) {
+    const { to, linkAs, replace, scroll, shallow, prefetch, ...other } = props;
 
-  return (
-    <NextLink
-      href={to}
-      prefetch={prefetch}
-      as={linkAs}
-      replace={replace}
-      scroll={scroll}
-      shallow={shallow}
-      passHref
-      legacyBehavior
-    >
-      <Anchor ref={ref} {...other} />
-    </NextLink>
-  );
-});
+    return (
+      <NextLink
+        href={to}
+        prefetch={prefetch}
+        as={linkAs}
+        replace={replace}
+        scroll={scroll}
+        shallow={shallow}
+        passHref
+        legacyBehavior
+      >
+        <Anchor ref={ref} {...other} />
+      </NextLink>
+    );
+  }
+);
 
 export type LinkProps = {
   activeClassName?: string;
