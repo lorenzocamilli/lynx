@@ -8,9 +8,9 @@ build: build-admin
 .PHONY: build-admin
 build-admin:
 	cd admin && \
-	yarn install --frozen-lockfile && \
-	yarn run export && \
-    mv dist ../cmd/hetty/admin
+	npm ci --legacy-peer-deps && \
+	npm run export && \
+	mv dist ../cmd/hetty/admin
 
 .PHONY: clean
 clean:
