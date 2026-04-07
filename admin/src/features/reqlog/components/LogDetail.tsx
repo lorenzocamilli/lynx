@@ -1,5 +1,4 @@
-import Alert from "@mui/lab/Alert";
-import { Box, CircularProgress, Paper, Typography } from "@mui/material";
+import { Alert, Box, CircularProgress, Paper, Typography } from "@mui/material";
 
 import RequestDetail from "./RequestDetail";
 

@@ -1,7 +1,7 @@
 import FilterListIcon from "@mui/icons-material/FilterList";
 import SearchIcon from "@mui/icons-material/Search";
-import { Alert } from "@mui/lab";
 import {
+  Alert,
   Box,
   Checkbox,
   CircularProgress,

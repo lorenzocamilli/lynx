@@ -1,5 +1,4 @@
-import { Alert } from "@mui/lab";
-import { CircularProgress, List } from "@mui/material";
+import { Alert, CircularProgress, List } from "@mui/material";
 import React from "react";
 
 import RuleListItem from "./RuleListItem";
