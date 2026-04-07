@@ -14,7 +14,7 @@ import {
   useTheme,
 } from "@mui/material";
 import IconButton from "@mui/material/IconButton";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import {
   HttpRequestLogFilterDocument,
@@ -27,12 +27,12 @@ function Search(): JSX.Element {
   const theme = useTheme();
 
   const [searchExpr, setSearchExpr] = useState("");
-  const filterResult = useHttpRequestLogFilterQuery({
-    onCompleted: (data) => {
-      setSearchExpr(data.httpRequestLogFilter?.searchExpression || "");
-    },
-  });
+  const filterResult = useHttpRequestLogFilterQuery();
   const filter = filterResult.data?.httpRequestLogFilter;
+
+  useEffect(() => {
+    setSearchExpr(filter?.searchExpression || "");
+  }, [filter?.searchExpression]);
 
   const [setFilterMutate, setFilterResult] = useSetHttpRequestLogFilterMutation({
     update(cache, { data }) {

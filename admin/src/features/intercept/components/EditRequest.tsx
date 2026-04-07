@@ -98,28 +98,30 @@ function EditRequest(): JSX.Element {
   const getReqResult = useGetInterceptedRequestQuery({
     variables: { id: reqId as string },
     skip: reqId === undefined,
-    onCompleted: ({ interceptedRequest }) => {
-      if (!interceptedRequest) {
-        return;
-      }
-
-      setURL(interceptedRequest.url);
-      setMethod(interceptedRequest.method);
-      setReqBody(interceptedRequest.body || "");
-
-      const newQueryParams = queryParamsFromURL(interceptedRequest.url);
-      // Push empty row.
-      newQueryParams.push({ key: "", value: "" });
-      setQueryParams(newQueryParams);
-
-      const newReqHeaders = interceptedRequest.headers || [];
-      setReqHeaders([...newReqHeaders.map(({ key, value }) => ({ key, value })), { key: "", value: "" }]);
-
-      setResBody(interceptedRequest.response?.body || "");
-      const newResHeaders = interceptedRequest.response?.headers || [];
-      setResHeaders([...newResHeaders.map(({ key, value }) => ({ key, value })), { key: "", value: "" }]);
-    },
   });
+
+  useEffect(() => {
+    const interceptedRequest = getReqResult.data?.interceptedRequest;
+    if (!interceptedRequest) {
+      return;
+    }
+
+    setURL(interceptedRequest.url);
+    setMethod(interceptedRequest.method);
+    setReqBody(interceptedRequest.body || "");
+
+    const newQueryParams = queryParamsFromURL(interceptedRequest.url);
+    // Push empty row.
+    newQueryParams.push({ key: "", value: "" });
+    setQueryParams(newQueryParams);
+
+    const newReqHeaders = interceptedRequest.headers || [];
+    setReqHeaders([...newReqHeaders.map(({ key, value }) => ({ key, value })), { key: "", value: "" }]);
+
+    setResBody(interceptedRequest.response?.body || "");
+    const newResHeaders = interceptedRequest.response?.headers || [];
+    setResHeaders([...newResHeaders.map(({ key, value }) => ({ key, value })), { key: "", value: "" }]);
+  }, [getReqResult.data]);
   const interceptedReq =
     reqId && !getReqResult?.data?.interceptedRequest?.response ? getReqResult?.data?.interceptedRequest : undefined;
   const interceptedRes = reqId ? getReqResult?.data?.interceptedRequest?.response : undefined;

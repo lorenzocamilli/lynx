@@ -1,7 +1,6 @@
 import { FlatCompat } from "@eslint/eslintrc";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
-import tseslint from "typescript-eslint";
 import prettierRecommended from "eslint-plugin-prettier/recommended";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -11,9 +10,11 @@ export default [
   {
     ignores: ["next*", "src/lib/graphql/generated.tsx"],
   },
-  ...compat.extends("next/core-web-vitals"),
-  ...tseslint.configs.recommended,
-  ...compat.extends("plugin:import/typescript"),
+  ...compat.extends(
+    "next/core-web-vitals",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:import/typescript"
+  ),
   prettierRecommended,
   {
     settings: {
@@ -35,9 +36,13 @@ export default [
           ignoreRestSiblings: true,
         },
       ],
+      "@typescript-eslint/no-unused-expressions": [
+        "error",
+        { allowShortCircuit: true, allowTernary: true },
+      ],
       "import/default": "off",
       "import/no-unresolved": "error",
-      "import/named": "error",
+      "import/named": "off",
       "import/namespace": "error",
       "import/export": "error",
       "import/no-deprecated": "error",

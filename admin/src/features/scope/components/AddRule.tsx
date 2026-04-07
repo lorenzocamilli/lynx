@@ -45,7 +45,7 @@ function AddRule(): JSX.Element {
       if (data) {
         scope = data.scope;
       }
-    } catch (e) {}
+    } catch {}
 
     setScope({
       variables: {
