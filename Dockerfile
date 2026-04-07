@@ -1,14 +1,14 @@
-ARG GO_VERSION=1.23.4
-ARG NODE_VERSION=18
+ARG GO_VERSION=1.25
+ARG NODE_VERSION=20
 ARG ALPINE_VERSION=3.20
 
 FROM node:${NODE_VERSION}-alpine AS node-builder
 WORKDIR /app
-COPY admin/package.json admin/yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY admin/package.json admin/package-lock.json ./
+RUN npm ci --legacy-peer-deps
 COPY admin/ .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN yarn run export
+RUN npm run export
 
 FROM golang:${GO_VERSION}-alpine AS go-builder
 ARG HETTY_VERSION=0.0.0
