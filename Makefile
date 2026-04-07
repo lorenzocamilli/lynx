@@ -8,7 +8,7 @@ build: build-admin
 .PHONY: build-admin
 build-admin:
 	cd admin && \
-	npm ci --legacy-peer-deps && \
+	npm install --legacy-peer-deps && \
 	npm run export && \
 	mv dist ../cmd/hetty/admin
 
