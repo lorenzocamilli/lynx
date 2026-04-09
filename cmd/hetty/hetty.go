@@ -238,6 +238,13 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 		SenderService:     senderService,
 	}, gqlEndpoint))
 
+	// CA certificate download endpoint (DER-encoded, importable by browsers).
+	adminRouter.Path("/api/ca.crt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-x509-ca-cert")
+		w.Header().Set("Content-Disposition", `attachment; filename="hetty_ca.crt"`)
+		w.Write(caCert.Raw)
+	})
+
 	// Admin interface.
 	adminRouter.PathPrefix("").Handler(adminHandler)
 
