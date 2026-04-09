@@ -8,7 +8,7 @@ interface ContextMenuProps {
 export default function useContextMenu(): [
   (props: ContextMenuProps) => JSX.Element,
   (e: React.MouseEvent) => void,
-  () => void
+  () => void,
 ] {
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;

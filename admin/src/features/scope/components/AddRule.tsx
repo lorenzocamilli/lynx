@@ -1,7 +1,7 @@
 import { useApolloClient } from "@apollo/client";
 import AddIcon from "@mui/icons-material/Add";
-import { Alert } from "@mui/lab";
 import {
+  Alert,
   Box,
   Button,
   CircularProgress,
@@ -45,7 +45,7 @@ function AddRule(): JSX.Element {
       if (data) {
         scope = data.scope;
       }
-    } catch (e) {}
+    } catch {}
 
     setScope({
       variables: {

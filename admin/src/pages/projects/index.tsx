@@ -21,7 +21,7 @@ function Index(): JSX.Element {
           <NewProject />
         </Box>
         <Grid container>
-          <Grid item xs={12} sm={8} md={6} lg={6}>
+          <Grid xs={12} sm={8} md={6} lg={6}>
             <ProjectList />
           </Grid>
         </Grid>
