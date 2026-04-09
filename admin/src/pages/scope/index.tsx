@@ -21,7 +21,7 @@ function Index(): JSX.Element {
           <Divider />
         </Box>
         <Grid container>
-          <Grid item xs={12} sm={12} md={8} lg={6}>
+          <Grid xs={12} sm={12} md={8} lg={6}>
             <AddRule />
             <Box my={4}>
               <Divider />

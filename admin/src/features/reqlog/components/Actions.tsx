@@ -1,7 +1,6 @@
 import AltRouteIcon from "@mui/icons-material/AltRoute";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { Alert } from "@mui/lab";
-import { Badge, Button, IconButton, Tooltip } from "@mui/material";
+import { Alert, Badge, Button, IconButton, Tooltip } from "@mui/material";
 import Link from "next/link";
 
 import { useActiveProject } from "lib/ActiveProjectContext";
@@ -27,7 +26,9 @@ function Actions(): JSX.Element {
         All proxy logs are going to be removed. This action cannot be undone.
       </ConfirmationDialog>
 
-      {clearLogsResult.error && <Alert severity="error">Failed to clear HTTP logs: {clearLogsResult.error}</Alert>}
+      {clearLogsResult.error && (
+        <Alert severity="error">Failed to clear HTTP logs: {clearLogsResult.error.message}</Alert>
+      )}
 
       {(activeProject?.settings.intercept.requestsEnabled || activeProject?.settings.intercept.responsesEnabled) && (
         <Link href="/proxy/intercept/?id=" passHref>
