@@ -1,3 +1,4 @@
+import DownloadIcon from "@mui/icons-material/Download";
 import FolderIcon from "@mui/icons-material/Folder";
 import { Box, Button, Typography } from "@mui/material";
 import Link from "next/link";
@@ -48,6 +49,17 @@ function Index(): JSX.Element {
             Manage projects
           </Button>
         </Link>
+
+        <Button
+          variant="outlined"
+          color="primary"
+          size="large"
+          startIcon={<DownloadIcon />}
+          component="a"
+          href="/api/ca.crt"
+        >
+          Download CA certificate
+        </Button>
       </Box>
     </Layout>
   );
