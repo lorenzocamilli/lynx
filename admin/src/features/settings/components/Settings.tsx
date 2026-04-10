@@ -27,6 +27,11 @@ import { withoutTypename } from "lib/graphql/omitTypename";
 
 enum TabValue {
   Intercept = "intercept",
+  Application = "application",
+}
+
+interface AppConfig {
+  addr: string;
 }
 
 function FilterTextField(props: TextFieldProps): JSX.Element {
@@ -143,6 +148,38 @@ export default function Settings(): JSX.Element {
     });
   };
 
+  // Application config state.
+  const [appConfig, setAppConfig] = useState<AppConfig>({ addr: "" });
+  const [appConfigLoading, setAppConfigLoading] = useState(false);
+  const [appConfigSaving, setAppConfigSaving] = useState(false);
+  const [restartRequired, setRestartRequired] = useState(false);
+  const [appConfigError, setAppConfigError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAppConfigLoading(true);
+    fetch("/api/settings")
+      .then((res) => res.json())
+      .then((data: AppConfig) => setAppConfig(data))
+      .catch(() => setAppConfigError("Failed to load application settings."))
+      .finally(() => setAppConfigLoading(false));
+  }, []);
+
+  const handleAppConfigSave = () => {
+    setAppConfigSaving(true);
+    setAppConfigError(null);
+    fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(appConfig),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Server error");
+        setRestartRequired(true);
+      })
+      .catch(() => setAppConfigError("Failed to save application settings."))
+      .finally(() => setAppConfigSaving(false));
+  };
+
   const [tabValue, setTabValue] = useState(TabValue.Intercept);
   const [settingsUpdatedOpen, setSettingsUpdatedOpen] = useState(false);
 
@@ -170,24 +207,27 @@ export default function Settings(): JSX.Element {
         Settings
       </Typography>
       <Typography paragraph sx={{ mb: 4 }}>
-        Settings allow you to tweak the behaviour of Hetty’s features.
+        Settings allow you to tweak the behaviour of Hetty&apos;s features.
       </Typography>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        Project settings
-      </Typography>
-      {!activeProject && (
-        <Typography paragraph>
-          There is no project active. To configure project settings, first <Link href="/projects">open a project</Link>.
-        </Typography>
-      )}
-      {activeProject && (
-        <>
-          <TabContext value={tabValue}>
-            <TabList onChange={(_, value) => setTabValue(value)} sx={{ borderBottom: 1, borderColor: "divider" }}>
-              <Tab value={TabValue.Intercept} label="Intercept" sx={tabSx} />
-            </TabList>
 
-            <TabPanel value={TabValue.Intercept} sx={{ px: 0 }}>
+      <TabContext value={tabValue}>
+        <TabList onChange={(_, value) => setTabValue(value)} sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tab value={TabValue.Intercept} label="Intercept" sx={tabSx} />
+          <Tab value={TabValue.Application} label="Application" sx={tabSx} />
+        </TabList>
+
+        <TabPanel value={TabValue.Intercept} sx={{ px: 0 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Project settings
+          </Typography>
+          {!activeProject && (
+            <Typography paragraph>
+              There is no project active. To configure project settings, first{" "}
+              <Link href="/projects">open a project</Link>.
+            </Typography>
+          )}
+          {activeProject && (
+            <>
               <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
                 Requests
               </Typography>
@@ -232,10 +272,7 @@ export default function Settings(): JSX.Element {
                   variant="text"
                   color="primary"
                   size="large"
-                  sx={{
-                    mt: 2,
-                    py: 1.8,
-                  }}
+                  sx={{ mt: 2, py: 1.8 }}
                   onClick={handleInterceptReqFilter}
                   disabled={updateIntercepSettingsResult.loading}
                   startIcon={updateIntercepSettingsResult.loading ? <CircularProgress size={22} /> : undefined}
@@ -287,10 +324,7 @@ export default function Settings(): JSX.Element {
                   variant="text"
                   color="primary"
                   size="large"
-                  sx={{
-                    mt: 2,
-                    py: 1.8,
-                  }}
+                  sx={{ mt: 2, py: 1.8 }}
                   onClick={handleInterceptResFilter}
                   disabled={updateIntercepSettingsResult.loading}
                   startIcon={updateIntercepSettingsResult.loading ? <CircularProgress size={22} /> : undefined}
@@ -298,10 +332,58 @@ export default function Settings(): JSX.Element {
                   Update
                 </Button>
               </form>
-            </TabPanel>
-          </TabContext>
-        </>
-      )}
+            </>
+          )}
+        </TabPanel>
+
+        <TabPanel value={TabValue.Application} sx={{ px: 0 }}>
+          <Typography variant="h5" sx={{ mb: 2 }}>
+            Application settings
+          </Typography>
+          <Typography paragraph color="text.secondary" sx={{ mb: 3 }}>
+            Changes to these settings take effect after restarting Hetty.
+          </Typography>
+
+          {restartRequired && (
+            <Alert severity="warning" sx={{ mb: 3 }} onClose={() => setRestartRequired(false)}>
+              Settings saved. Restart Hetty for the changes to take effect.
+            </Alert>
+          )}
+
+          {appConfigError && (
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setAppConfigError(null)}>
+              {appConfigError}
+            </Alert>
+          )}
+
+          {appConfigLoading ? (
+            <CircularProgress />
+          ) : (
+            <Box component="form" sx={{ display: "flex", flexDirection: "column", maxWidth: 480, gap: 2 }}>
+              <TextField
+                label="Listen address"
+                helperText={`TCP address the proxy listens on, e.g. ":8080" or "127.0.0.1:8888".`}
+                value={appConfig.addr}
+                onChange={(e) => setAppConfig((c) => ({ ...c, addr: e.target.value }))}
+                InputLabelProps={{ shrink: true }}
+                variant="outlined"
+                fullWidth
+              />
+              <Box>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleAppConfigSave}
+                  disabled={appConfigSaving}
+                  startIcon={appConfigSaving ? <CircularProgress size={18} /> : undefined}
+                >
+                  Save settings
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </TabPanel>
+      </TabContext>
     </Box>
   );
 }
