@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net"
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dstotijn/hetty/pkg/api"
+	"github.com/dstotijn/hetty/pkg/config"
 	"github.com/dstotijn/hetty/pkg/db/bolt"
 	"github.com/dstotijn/hetty/pkg/proj"
 	"github.com/dstotijn/hetty/pkg/proxy"
@@ -35,13 +37,13 @@ var version = "0.0.0"
 //go:embed admin/_next/static/*/*.js
 var adminContent embed.FS
 
-func run(ctx context.Context, addr, certFile, keyFile, dbPath string, logger *zap.Logger) error {
+func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
 	mainLogger := logger.Named("main")
 
-	listenHost, listenPort, err := net.SplitHostPort(addr)
+	listenHost, listenPort, err := net.SplitHostPort(cfg.Addr)
 	if err != nil {
 		mainLogger.Fatal("Failed to parse listening address.", zap.Error(err))
 	}
@@ -51,19 +53,19 @@ func run(ctx context.Context, addr, certFile, keyFile, dbPath string, logger *za
 		url = fmt.Sprintf("http://localhost:%v", listenPort)
 	}
 
-	caCertFile, err := homedir.Expand(certFile)
+	caCertFile, err := homedir.Expand("~/.hetty/hetty_cert.pem")
 	if err != nil {
-		mainLogger.Fatal("Failed to parse CA certificate filepath.", zap.Error(err))
+		mainLogger.Fatal("Failed to expand CA certificate filepath.", zap.Error(err))
 	}
 
-	caKeyFile, err := homedir.Expand(keyFile)
+	caKeyFile, err := homedir.Expand("~/.hetty/hetty_key.pem")
 	if err != nil {
-		mainLogger.Fatal("Failed to parse CA private key filepath.", zap.Error(err))
+		mainLogger.Fatal("Failed to expand CA private key filepath.", zap.Error(err))
 	}
 
-	dbFilePath, err := homedir.Expand(dbPath)
+	dbFilePath, err := homedir.Expand("~/.hetty/hetty.db")
 	if err != nil {
-		mainLogger.Fatal("Failed to parse database path.", zap.Error(err))
+		mainLogger.Fatal("Failed to expand database path.", zap.Error(err))
 	}
 
 	caCert, caKey, err := proxy.LoadOrCreateCA(caKeyFile, caCertFile)
@@ -141,6 +143,7 @@ func run(ctx context.Context, addr, certFile, keyFile, dbPath string, logger *za
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
 	}).Subrouter().StrictSlash(true)
 
+	// GraphQL server.
 	gqlEndpoint := "/api/graphql/"
 	adminRouter.Path(gqlEndpoint).Handler(api.HTTPHandler(&api.Resolver{
 		ProjectService:    projService,
@@ -156,20 +159,48 @@ func run(ctx context.Context, addr, certFile, keyFile, dbPath string, logger *za
 		w.Write(caCert.Raw)
 	})
 
+	// Settings REST endpoints.
+	adminRouter.Path("/api/settings").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(cfg)
+	})
+
+	adminRouter.Path("/api/settings").Methods(http.MethodPost).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var input config.Config
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if input.Addr == "" {
+			http.Error(w, "addr is required", http.StatusBadRequest)
+			return
+		}
+
+		if err := config.Save(config.DefaultPath, input); err != nil {
+			mainLogger.Error("Failed to save config.", zap.Error(err))
+			http.Error(w, "failed to save config", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(input)
+	})
+
 	adminRouter.PathPrefix("").Handler(adminHandler)
 
 	// Fallback (default) is the Proxy handler.
 	router.PathPrefix("").Handler(p)
 
 	httpServer := &http.Server{
-		Addr:         addr,
+		Addr:         cfg.Addr,
 		Handler:      router,
 		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 		ErrorLog:     zap.NewStdLog(logger.Named("http")),
 	}
 
 	go func() {
-		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, addr))
+		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, cfg.Addr))
 		mainLogger.Info(fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(32), "Get started at "+url))
 
 		err := httpServer.ListenAndServe()

@@ -7,6 +7,7 @@ import HomeIcon from "@mui/icons-material/Home";
 import LocationSearchingIcon from "@mui/icons-material/LocationSearching";
 import MenuIcon from "@mui/icons-material/Menu";
 import SendIcon from "@mui/icons-material/Send";
+import SettingsIcon from "@mui/icons-material/Settings";
 import {
   Theme,
   useTheme,
@@ -258,6 +259,16 @@ export function Layout({ title, page, children }: Props): JSX.Element {
                 </ListItemIcon>
               </Tooltip>
               <ListItemText primary="Projects" />
+            </ListItemButton>
+          </Link>
+          <Link href="/settings" passHref>
+            <ListItemButton key="settings" selected={page === Page.Settings}>
+              <Tooltip title="Settings">
+                <ListItemIcon>
+                  <SettingsIcon />
+                </ListItemIcon>
+              </Tooltip>
+              <ListItemText primary="Settings" />
             </ListItemButton>
           </Link>
         </List>
