@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	llog "log"
-	"os"
 
 	"go.uber.org/zap"
 
@@ -13,23 +11,20 @@ import (
 )
 
 func main() {
-	hettyCmd, cfg := NewHettyCommand()
+	addr := flag.String("addr", ":8080", `TCP address to listen on, in the form "host:port".`)
+	cert := flag.String("cert", "~/.hetty/hetty_cert.pem", "Path to root CA certificate. Creates file if it doesn't exist.")
+	key := flag.String("key", "~/.hetty/hetty_key.pem", "Path to root CA private key. Creates file if it doesn't exist.")
+	db := flag.String("db", "~/.hetty/hetty.db", "Database file path. Creates file if it doesn't exist.")
+	flag.Parse()
 
-	if err := hettyCmd.Parse(os.Args[1:]); err != nil {
-		llog.Fatalf("Failed to parse command line arguments: %v", err)
-	}
-
-	logger, err := log.NewZapLogger(cfg.verbose, cfg.jsonLogs)
+	logger, err := log.NewZapLogger(false, false)
 	if err != nil {
-		llog.Fatal(err)
+		llog.Fatalf("Failed to create logger: %v", err)
 	}
 	//nolint:errcheck
 	defer logger.Sync()
 
-	cfg.logger = logger
-
-	err = hettyCmd.Run(context.Background())
-	if err != nil && !errors.Is(err, flag.ErrHelp) {
+	if err := run(context.Background(), *addr, *cert, *key, *db, logger); err != nil {
 		logger.Fatal("Command failed.", zap.Error(err))
 	}
 }
