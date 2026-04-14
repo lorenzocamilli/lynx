@@ -31,7 +31,7 @@ enum TabValue {
 }
 
 interface AppConfig {
-  addr: string;
+  port: number;
 }
 
 function FilterTextField(props: TextFieldProps): JSX.Element {
@@ -149,7 +149,7 @@ export default function Settings(): JSX.Element {
   };
 
   // Application config state.
-  const [appConfig, setAppConfig] = useState<AppConfig>({ addr: "" });
+  const [appConfig, setAppConfig] = useState<AppConfig>({ port: 8080 });
   const [appConfigLoading, setAppConfigLoading] = useState(false);
   const [appConfigSaving, setAppConfigSaving] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
@@ -361,11 +361,12 @@ export default function Settings(): JSX.Element {
           ) : (
             <Box component="form" sx={{ display: "flex", flexDirection: "column", maxWidth: 480, gap: 2 }}>
               <TextField
-                label="Listen address"
-                helperText={`TCP address the proxy listens on, e.g. ":8080" or "127.0.0.1:8888".`}
-                value={appConfig.addr}
-                onChange={(e) => setAppConfig((c) => ({ ...c, addr: e.target.value }))}
-                InputLabelProps={{ shrink: true }}
+                label="Listen port"
+                helperText="Port the proxy listens on (1–65535). Binds to all interfaces."
+                type="number"
+                value={appConfig.port}
+                onChange={(e) => setAppConfig((c) => ({ ...c, port: parseInt(e.target.value, 10) }))}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1, max: 65535 } }}
                 variant="outlined"
                 fullWidth
               />

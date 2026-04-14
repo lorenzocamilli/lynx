@@ -43,15 +43,8 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 
 	mainLogger := logger.Named("main")
 
-	listenHost, listenPort, err := net.SplitHostPort(cfg.Addr)
-	if err != nil {
-		mainLogger.Fatal("Failed to parse listening address.", zap.Error(err))
-	}
-
-	url := fmt.Sprintf("http://%v:%v", listenHost, listenPort)
-	if listenHost == "" || listenHost == "0.0.0.0" || listenHost == "127.0.0.1" || listenHost == "::1" {
-		url = fmt.Sprintf("http://localhost:%v", listenPort)
-	}
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
 
 	caCertFile, err := homedir.Expand("~/.hetty/hetty_cert.pem")
 	if err != nil {
@@ -138,8 +131,8 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 
 		return strings.EqualFold(host, hostname) ||
 			req.Host == "hetty.proxy" ||
-			req.Host == fmt.Sprintf("%v:%v", "localhost", listenPort) ||
-			req.Host == fmt.Sprintf("%v:%v", listenHost, listenPort) ||
+			req.Host == fmt.Sprintf("localhost:%d", cfg.Port) ||
+			req.Host == fmt.Sprintf("127.0.0.1:%d", cfg.Port) ||
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
 	}).Subrouter().StrictSlash(true)
 
@@ -172,8 +165,8 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 			return
 		}
 
-		if input.Addr == "" {
-			http.Error(w, "addr is required", http.StatusBadRequest)
+		if input.Port < 1 || input.Port > 65535 {
+			http.Error(w, "port must be between 1 and 65535", http.StatusBadRequest)
 			return
 		}
 
@@ -193,14 +186,14 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	router.PathPrefix("").Handler(p)
 
 	httpServer := &http.Server{
-		Addr:         cfg.Addr,
+		Addr:         addr,
 		Handler:      router,
 		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 		ErrorLog:     zap.NewStdLog(logger.Named("http")),
 	}
 
 	go func() {
-		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, cfg.Addr))
+		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, addr))
 		mainLogger.Info(fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(32), "Get started at "+url))
 
 		err := httpServer.ListenAndServe()
