@@ -33,13 +33,24 @@ interface Props {
   onChange?: EditorProps["onChange"];
 }
 
+function formatContent(content: string, contentType?: string): string {
+  if (languageForContentType(contentType) === "json") {
+    try {
+      return JSON.stringify(JSON.parse(content), null, 2);
+    } catch {
+      // Not valid JSON — display as-is.
+    }
+  }
+  return content;
+}
+
 function Editor({ content, contentType, monacoOptions, onChange }: Props): JSX.Element {
   return (
     <MonacoEditor
       language={languageForContentType(contentType)}
       theme="vs-dark"
       options={{ ...defaultMonacoOptions, ...monacoOptions }}
-      value={content}
+      value={formatContent(content, contentType)}
       onChange={onChange}
     />
   );
