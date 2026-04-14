@@ -1,3 +1,4 @@
+import { Reference, useApolloClient } from "@apollo/client";
 import CancelIcon from "@mui/icons-material/Cancel";
 import { Alert, Box, Button, CircularProgress, Link, MenuItem, Paper, Snackbar, Typography } from "@mui/material";
 import { useRouter } from "next/router";
@@ -6,12 +7,23 @@ import { useState } from "react";
 import { useInterceptedRequests } from "lib/InterceptedRequestsContext";
 import RequestsTable from "lib/components/RequestsTable";
 import useContextMenu from "lib/components/useContextMenu";
-import { useCancelRequestMutation, useCreateSenderRequestFromHttpRequestLogMutation } from "lib/graphql/generated";
+import {
+  GetInterceptedRequestDocument,
+  GetInterceptedRequestQuery,
+  GetInterceptedRequestQueryVariables,
+  HttpProtocol,
+  useCancelRequestMutation,
+  useCreateSenderRequestFromHttpRequestLogMutation,
+  useModifyRequestMutation,
+} from "lib/graphql/generated";
 
 function Requests(): JSX.Element {
   const interceptedRequests = useInterceptedRequests();
   const router = useRouter();
   const activeId = router.query.id as string | undefined;
+  const client = useApolloClient();
+
+  const [modifyRequest] = useModifyRequestMutation();
 
   const [createSenderReqFromLog] = useCreateSenderRequestFromHttpRequestLogMutation({
     onCompleted({ createSenderRequestFromHttpRequestLog }) {
@@ -52,6 +64,43 @@ function Requests(): JSX.Element {
     handleContextMenuClose();
   };
 
+  const handleInterceptResponseClick = async () => {
+    handleContextMenuClose();
+    const targetId = copyToSenderId;
+    const { data } = await client.query<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>({
+      query: GetInterceptedRequestDocument,
+      variables: { id: targetId },
+      fetchPolicy: "network-only",
+    });
+    const r = data?.interceptedRequest;
+    if (!r) return;
+    modifyRequest({
+      variables: {
+        request: {
+          id: r.id,
+          url: r.url,
+          method: r.method,
+          proto: r.proto ?? HttpProtocol.Http20,
+          headers: r.headers?.filter((h) => h.key !== "") || [],
+          body: r.body || undefined,
+          modifyResponse: true,
+        },
+      },
+      update(cache) {
+        cache.modify({
+          fields: {
+            interceptedRequests(existing: readonly Reference[], { readField }) {
+              return existing.filter((ref) => targetId !== readField("id", ref));
+            },
+          },
+        });
+      },
+      onCompleted() {
+        router.push(`/proxy/intercept?id=${targetId}`);
+      },
+    });
+  };
+
   const handleCloseCopiedNotif = (_: Event | React.SyntheticEvent, reason?: string) => {
     if (reason === "clickaway") return;
     setCopiedNotifOpen(false);
@@ -60,6 +109,7 @@ function Requests(): JSX.Element {
   return (
     <Box>
       <Menu>
+        <MenuItem onClick={handleInterceptResponseClick}>Intercept response</MenuItem>
         <MenuItem onClick={handleCopyToSenderClick}>Copy request to Sender</MenuItem>
       </Menu>
       <Snackbar
