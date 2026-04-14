@@ -155,7 +155,9 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	// Settings REST endpoints.
 	adminRouter.Path("/api/settings").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(cfg)
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(cfg)
 	})
 
 	adminRouter.Path("/api/settings").Methods(http.MethodPost).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -177,7 +179,9 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(input)
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(input)
 	})
 
 	adminRouter.PathPrefix("").Handler(adminHandler)
