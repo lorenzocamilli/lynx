@@ -12,12 +12,12 @@ import (
 const DefaultPath = "~/.hetty/config.yaml"
 
 type Config struct {
-	Addr string `yaml:"addr"`
+	Port int `yaml:"port"`
 }
 
 func Default() Config {
 	return Config{
-		Addr: ":8080",
+		Port: 8080,
 	}
 }
 
