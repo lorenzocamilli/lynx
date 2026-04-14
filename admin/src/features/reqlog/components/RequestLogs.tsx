@@ -1,16 +1,4 @@
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import {
-  Alert,
-  Box,
-  IconButton,
-  Link,
-  MenuItem,
-  Snackbar,
-  styled,
-  TableCell,
-  TableCellProps,
-  Tooltip,
-} from "@mui/material";
+import { Alert, Box, Link, MenuItem, Snackbar } from "@mui/material";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
@@ -22,11 +10,6 @@ import RequestsTable from "lib/components/RequestsTable";
 import SplitPane from "lib/components/SplitPane";
 import useContextMenu from "lib/components/useContextMenu";
 import { useCreateSenderRequestFromHttpRequestLogMutation, useHttpRequestLogsQuery } from "lib/graphql/generated";
-
-const ActionsTableCell = styled(TableCell)<TableCellProps>(() => ({
-  paddingTop: 0,
-  paddingBottom: 0,
-}));
 
 export function RequestLogs(): JSX.Element {
   const router = useRouter();
@@ -73,26 +56,6 @@ export function RequestLogs(): JSX.Element {
     handleContextMenu(e);
   };
 
-  const actionsCell = (id: string) => (
-    <ActionsTableCell>
-      <Tooltip title="Copy to Sender">
-        <IconButton
-          size="small"
-          onClick={() => {
-            setCopyToSenderId(id);
-            createSenderReqFromLog({
-              variables: {
-                id,
-              },
-            });
-          }}
-        >
-          <ContentCopyIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-    </ActionsTableCell>
-  );
-
   return (
     <Box display="flex" flexDirection="column" height="100%">
       <Box display="flex">
@@ -123,7 +86,6 @@ export function RequestLogs(): JSX.Element {
               <RequestsTable
                 requests={data?.httpRequestLogs || []}
                 activeRowId={id}
-                actionsCell={actionsCell}
                 onRowClick={handleRowClick}
                 onContextMenu={handleRowContextClick}
               />
