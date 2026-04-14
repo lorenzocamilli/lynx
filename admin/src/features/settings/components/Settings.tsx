@@ -7,17 +7,14 @@ import {
   Button,
   CircularProgress,
   FormControl,
-  FormControlLabel,
   FormHelperText,
   Snackbar,
-  Switch,
   Tab,
   TextField,
   TextFieldProps,
   Typography,
 } from "@mui/material";
 import MaterialLink from "@mui/material/Link";
-import { SwitchBaseProps } from "@mui/material/internal/SwitchBase";
 import { useEffect, useState } from "react";
 
 import { useActiveProject } from "lib/ActiveProjectContext";
@@ -86,43 +83,8 @@ export default function Settings(): JSX.Element {
     setInterceptResFilter(activeProject?.settings.intercept.responseFilter || "");
   }, [activeProject?.settings.intercept.responseFilter]);
 
-  const handleReqInterceptEnabled: SwitchBaseProps["onChange"] = (e, checked) => {
-    if (!activeProject) {
-      e.preventDefault();
-      return;
-    }
-
-    updateInterceptSettings({
-      variables: {
-        input: {
-          ...withoutTypename(activeProject.settings.intercept),
-          requestsEnabled: checked,
-        },
-      },
-    });
-  };
-
-  const handleResInterceptEnabled: SwitchBaseProps["onChange"] = (e, checked) => {
-    if (!activeProject) {
-      e.preventDefault();
-      return;
-    }
-
-    updateInterceptSettings({
-      variables: {
-        input: {
-          ...withoutTypename(activeProject.settings.intercept),
-          responsesEnabled: checked,
-        },
-      },
-    });
-  };
-
   const handleInterceptReqFilter = () => {
-    if (!activeProject) {
-      return;
-    }
-
+    if (!activeProject) return;
     updateInterceptSettings({
       variables: {
         input: {
@@ -134,10 +96,7 @@ export default function Settings(): JSX.Element {
   };
 
   const handleInterceptResFilter = () => {
-    if (!activeProject) {
-      return;
-    }
-
+    if (!activeProject) return;
     updateInterceptSettings({
       variables: {
         input: {
@@ -184,16 +143,11 @@ export default function Settings(): JSX.Element {
   const [settingsUpdatedOpen, setSettingsUpdatedOpen] = useState(false);
 
   const handleSettingsUpdatedClose = (_: Event | React.SyntheticEvent, reason?: string) => {
-    if (reason === "clickaway") {
-      return;
-    }
-
+    if (reason === "clickaway") return;
     setSettingsUpdatedOpen(false);
   };
 
-  const tabSx = {
-    textTransform: "none",
-  };
+  const tabSx = { textTransform: "none" };
 
   return (
     <Box p={4}>
@@ -229,26 +183,8 @@ export default function Settings(): JSX.Element {
           {activeProject && (
             <>
               <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
-                Requests
+                Request filter
               </Typography>
-              <FormControl sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      disabled={updateIntercepSettingsResult.loading}
-                      onChange={handleReqInterceptEnabled}
-                      checked={activeProject.settings.intercept.requestsEnabled}
-                    />
-                  }
-                  label="Enable request interception"
-                  labelPlacement="start"
-                  sx={{ display: "inline-block", m: 0 }}
-                />
-                <FormHelperText>
-                  When enabled, incoming HTTP requests to the proxy are stalled for{" "}
-                  <Link href="/proxy/intercept">manual review</Link>.
-                </FormHelperText>
-              </FormControl>
               <form>
                 <FormControl sx={{ width: "50%" }}>
                   <FilterTextField
@@ -280,27 +216,10 @@ export default function Settings(): JSX.Element {
                   Update
                 </Button>
               </form>
-              <Typography variant="h6" sx={{ mt: 3 }}>
-                Responses
+
+              <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
+                Response filter
               </Typography>
-              <FormControl sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      disabled={updateIntercepSettingsResult.loading}
-                      onChange={handleResInterceptEnabled}
-                      checked={activeProject.settings.intercept.responsesEnabled}
-                    />
-                  }
-                  label="Enable response interception"
-                  labelPlacement="start"
-                  sx={{ display: "inline-block", m: 0 }}
-                />
-                <FormHelperText>
-                  When enabled, HTTP responses received by the proxy are stalled for{" "}
-                  <Link href="/proxy/intercept">manual review</Link>.
-                </FormHelperText>
-              </FormControl>
               <form>
                 <FormControl sx={{ width: "50%" }}>
                   <FilterTextField
