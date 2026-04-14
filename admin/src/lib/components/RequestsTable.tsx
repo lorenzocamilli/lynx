@@ -20,6 +20,13 @@ const baseCellStyle = {
   textOverflow: "ellipsis",
 } as const;
 
+const NumberTableCell = styled(TableCell)<TableCellProps>(({ theme }) => ({
+  ...baseCellStyle,
+  width: "50px",
+  color: theme.palette.text.secondary,
+  fontVariantNumeric: "tabular-nums",
+}));
+
 const MethodTableCell = styled(TableCell)<TableCellProps>(() => ({
   ...baseCellStyle,
   width: "100px",
@@ -75,6 +82,7 @@ export default function RequestsTable(props: Props): JSX.Element {
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
+            <TableCell>#</TableCell>
             <TableCell>Method</TableCell>
             <TableCell>Origin</TableCell>
             <TableCell>Path</TableCell>
@@ -83,7 +91,7 @@ export default function RequestsTable(props: Props): JSX.Element {
           </TableRow>
         </TableHead>
         <TableBody>
-          {requests.map(({ id, method, url, response }) => {
+          {requests.map(({ id, method, url, response }, index) => {
             const { origin, pathname, search, hash } = new URL(url);
 
             return (
@@ -98,6 +106,7 @@ export default function RequestsTable(props: Props): JSX.Element {
                   onContextMenu && onContextMenu(e, id);
                 }}
               >
+                <NumberTableCell>{requests.length - index}</NumberTableCell>
                 <MethodTableCell>
                   <code>{method}</code>
                 </MethodTableCell>

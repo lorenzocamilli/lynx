@@ -2,33 +2,57 @@ import { Reference } from "@apollo/client";
 import CancelIcon from "@mui/icons-material/Cancel";
 import DownloadIcon from "@mui/icons-material/Download";
 import SendIcon from "@mui/icons-material/Send";
-import SettingsIcon from "@mui/icons-material/Settings";
-import { Alert, Box, Button, CircularProgress, IconButton, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, FormControlLabel, Switch, Typography } from "@mui/material";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 
+import { useActiveProject } from "lib/ActiveProjectContext";
 import { useInterceptedRequests } from "lib/InterceptedRequestsContext";
 import { KeyValuePair } from "lib/components/KeyValuePair";
-import Link from "lib/components/Link";
 import RequestTabs from "lib/components/RequestTabs";
 import ResponseStatus from "lib/components/ResponseStatus";
 import ResponseTabs from "lib/components/ResponseTabs";
 import UrlBar, { HttpMethod, HttpProto, httpProtoMap } from "lib/components/UrlBar";
 import {
+  ActiveProjectDocument,
   HttpProtocol,
   useCancelRequestMutation,
   useCancelResponseMutation,
   useGetInterceptedRequestQuery,
   useModifyRequestMutation,
   useModifyResponseMutation,
+  useUpdateInterceptSettingsMutation,
 } from "lib/graphql/generated";
+import { withoutTypename } from "lib/graphql/omitTypename";
 import { queryParamsFromURL } from "lib/queryParamsFromURL";
 import updateKeyPairItem from "lib/updateKeyPairItem";
 import updateURLQueryParams from "lib/updateURLQueryParams";
 
 function EditRequest(): JSX.Element {
   const router = useRouter();
+  const activeProject = useActiveProject();
   const interceptedRequests = useInterceptedRequests();
+
+  const [updateInterceptSettings] = useUpdateInterceptSettingsMutation({
+    update(cache, { data }) {
+      if (!data) return;
+      cache.updateQuery({ query: ActiveProjectDocument }, (cached) => ({
+        activeProject: {
+          ...cached.activeProject,
+          settings: { ...cached.activeProject.settings, intercept: data.updateInterceptSettings },
+        },
+      }));
+    },
+  });
+
+  const handleInterceptToggle = (_: React.SyntheticEvent, checked: boolean) => {
+    if (!activeProject) return;
+    updateInterceptSettings({
+      variables: {
+        input: { ...withoutTypename(activeProject.settings.intercept), requestsEnabled: checked },
+      },
+    });
+  };
 
   useEffect(() => {
     // If there's no request selected and there are pending reqs, navigate to
@@ -298,11 +322,18 @@ function EditRequest(): JSX.Element {
               </Button>
             </>
           )}
-          <Tooltip title="Intercept settings">
-            <IconButton LinkComponent={Link} href="/settings#intercept">
-              <SettingsIcon />
-            </IconButton>
-          </Tooltip>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={activeProject?.settings.intercept.requestsEnabled ?? false}
+                onChange={handleInterceptToggle}
+                size="small"
+              />
+            }
+            label="Intercept"
+            labelPlacement="start"
+            sx={{ ml: 1, mr: 0, userSelect: "none" }}
+          />
         </Box>
         {modifyReqResult.error && (
           <Alert severity="error" sx={{ mt: 1 }}>
