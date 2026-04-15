@@ -142,6 +142,7 @@ function Requests(): JSX.Element {
           onRowClick={handleRowClick}
           onContextMenu={handleRowContextClick}
           activeRowId={activeId}
+          oldestFirst
         />
       )}
       <Box sx={{ mt: 2, height: "100%" }}>
