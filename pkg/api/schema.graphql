@@ -211,6 +211,7 @@ type Mutation {
   closeProject: CloseProjectResult!
   deleteProject(id: ID!): DeleteProjectResult!
   clearHTTPRequestLog: ClearHTTPRequestLogResult!
+  deleteHTTPRequestLog(id: ID!): ClearHTTPRequestLogResult!
   setScope(scope: [ScopeRuleInput!]!): [ScopeRule!]!
   setHttpRequestLogFilter(
     filter: HttpRequestLogFilterInput
@@ -220,6 +221,7 @@ type Mutation {
   createSenderRequestFromHttpRequestLog(id: ID!): SenderRequest!
   sendRequest(id: ID!): SenderRequest!
   deleteSenderRequests: DeleteSenderRequestsResult!
+  deleteSenderRequest(id: ID!): DeleteSenderRequestsResult!
   modifyRequest(request: ModifyRequestInput!): ModifyRequestResult!
   cancelRequest(id: ID!): CancelRequestResult!
   modifyResponse(response: ModifyResponseInput!): ModifyResponseResult!

@@ -179,7 +179,9 @@ export type Mutation = {
   createOrUpdateSenderRequest: SenderRequest;
   createProject?: Maybe<Project>;
   createSenderRequestFromHttpRequestLog: SenderRequest;
+  deleteHTTPRequestLog: ClearHttpRequestLogResult;
   deleteProject: DeleteProjectResult;
+  deleteSenderRequest: DeleteSenderRequestsResult;
   deleteSenderRequests: DeleteSenderRequestsResult;
   modifyRequest: ModifyRequestResult;
   modifyResponse: ModifyResponseResult;
@@ -217,7 +219,17 @@ export type MutationCreateSenderRequestFromHttpRequestLogArgs = {
 };
 
 
+export type MutationDeleteHttpRequestLogArgs = {
+  id: Scalars['ID'];
+};
+
+
 export type MutationDeleteProjectArgs = {
+  id: Scalars['ID'];
+};
+
+
+export type MutationDeleteSenderRequestArgs = {
   id: Scalars['ID'];
 };
 
@@ -443,6 +455,13 @@ export type ClearHttpRequestLogMutationVariables = Exact<{ [key: string]: never;
 
 export type ClearHttpRequestLogMutation = { __typename?: 'Mutation', clearHTTPRequestLog: { __typename?: 'ClearHTTPRequestLogResult', success: boolean } };
 
+export type DeleteHttpRequestLogMutationVariables = Exact<{
+  id: Scalars['ID'];
+}>;
+
+
+export type DeleteHttpRequestLogMutation = { __typename?: 'Mutation', deleteHTTPRequestLog: { __typename?: 'ClearHTTPRequestLogResult', success: boolean } };
+
 export type HttpRequestLogQueryVariables = Exact<{
   id: Scalars['ID'];
 }>;
@@ -492,6 +511,13 @@ export type CreateSenderRequestFromHttpRequestLogMutationVariables = Exact<{
 
 
 export type CreateSenderRequestFromHttpRequestLogMutation = { __typename?: 'Mutation', createSenderRequestFromHttpRequestLog: { __typename?: 'SenderRequest', id: string } };
+
+export type DeleteSenderRequestMutationVariables = Exact<{
+  id: Scalars['ID'];
+}>;
+
+
+export type DeleteSenderRequestMutation = { __typename?: 'Mutation', deleteSenderRequest: { __typename?: 'DeleteSenderRequestsResult', success: boolean } };
 
 export type SendRequestMutationVariables = Exact<{
   id: Scalars['ID'];
@@ -957,6 +983,39 @@ export function useClearHttpRequestLogMutation(baseOptions?: Apollo.MutationHook
 export type ClearHttpRequestLogMutationHookResult = ReturnType<typeof useClearHttpRequestLogMutation>;
 export type ClearHttpRequestLogMutationResult = Apollo.MutationResult<ClearHttpRequestLogMutation>;
 export type ClearHttpRequestLogMutationOptions = Apollo.BaseMutationOptions<ClearHttpRequestLogMutation, ClearHttpRequestLogMutationVariables>;
+export const DeleteHttpRequestLogDocument = gql`
+    mutation DeleteHttpRequestLog($id: ID!) {
+  deleteHTTPRequestLog(id: $id) {
+    success
+  }
+}
+    `;
+export type DeleteHttpRequestLogMutationFn = Apollo.MutationFunction<DeleteHttpRequestLogMutation, DeleteHttpRequestLogMutationVariables>;
+
+/**
+ * __useDeleteHttpRequestLogMutation__
+ *
+ * To run a mutation, you first call `useDeleteHttpRequestLogMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteHttpRequestLogMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteHttpRequestLogMutation, { data, loading, error }] = useDeleteHttpRequestLogMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useDeleteHttpRequestLogMutation(baseOptions?: Apollo.MutationHookOptions<DeleteHttpRequestLogMutation, DeleteHttpRequestLogMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return Apollo.useMutation<DeleteHttpRequestLogMutation, DeleteHttpRequestLogMutationVariables>(DeleteHttpRequestLogDocument, options);
+      }
+export type DeleteHttpRequestLogMutationHookResult = ReturnType<typeof useDeleteHttpRequestLogMutation>;
+export type DeleteHttpRequestLogMutationResult = Apollo.MutationResult<DeleteHttpRequestLogMutation>;
+export type DeleteHttpRequestLogMutationOptions = Apollo.BaseMutationOptions<DeleteHttpRequestLogMutation, DeleteHttpRequestLogMutationVariables>;
 export const HttpRequestLogDocument = gql`
     query HttpRequestLog($id: ID!) {
   httpRequestLog(id: $id) {
@@ -1254,6 +1313,39 @@ export function useCreateSenderRequestFromHttpRequestLogMutation(baseOptions?: A
 export type CreateSenderRequestFromHttpRequestLogMutationHookResult = ReturnType<typeof useCreateSenderRequestFromHttpRequestLogMutation>;
 export type CreateSenderRequestFromHttpRequestLogMutationResult = Apollo.MutationResult<CreateSenderRequestFromHttpRequestLogMutation>;
 export type CreateSenderRequestFromHttpRequestLogMutationOptions = Apollo.BaseMutationOptions<CreateSenderRequestFromHttpRequestLogMutation, CreateSenderRequestFromHttpRequestLogMutationVariables>;
+export const DeleteSenderRequestDocument = gql`
+    mutation DeleteSenderRequest($id: ID!) {
+  deleteSenderRequest(id: $id) {
+    success
+  }
+}
+    `;
+export type DeleteSenderRequestMutationFn = Apollo.MutationFunction<DeleteSenderRequestMutation, DeleteSenderRequestMutationVariables>;
+
+/**
+ * __useDeleteSenderRequestMutation__
+ *
+ * To run a mutation, you first call `useDeleteSenderRequestMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useDeleteSenderRequestMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [deleteSenderRequestMutation, { data, loading, error }] = useDeleteSenderRequestMutation({
+ *   variables: {
+ *      id: // value for 'id'
+ *   },
+ * });
+ */
+export function useDeleteSenderRequestMutation(baseOptions?: Apollo.MutationHookOptions<DeleteSenderRequestMutation, DeleteSenderRequestMutationVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return Apollo.useMutation<DeleteSenderRequestMutation, DeleteSenderRequestMutationVariables>(DeleteSenderRequestDocument, options);
+      }
+export type DeleteSenderRequestMutationHookResult = ReturnType<typeof useDeleteSenderRequestMutation>;
+export type DeleteSenderRequestMutationResult = Apollo.MutationResult<DeleteSenderRequestMutation>;
+export type DeleteSenderRequestMutationOptions = Apollo.BaseMutationOptions<DeleteSenderRequestMutation, DeleteSenderRequestMutationVariables>;
 export const SendRequestDocument = gql`
     mutation SendRequest($id: ID!) {
   sendRequest(id: $id) {

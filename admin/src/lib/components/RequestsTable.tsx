@@ -105,6 +105,7 @@ export default function RequestsTable(props: Props): JSX.Element {
                   onRowClick && onRowClick(id);
                 }}
                 onContextMenu={(e) => {
+                  e.preventDefault();
                   onContextMenu && onContextMenu(e, id);
                 }}
               >

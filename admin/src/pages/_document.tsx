@@ -9,7 +9,7 @@ export default class MyDocument extends Document {
   /* eslint-disable */
   render() {
     return (
-      <Html lang="en">
+      <Html lang="en" suppressHydrationWarning>
         <Head>
           <meta name="theme-color" content={theme.palette.primary.main} />
           <link rel="stylesheet" href="/style.css" />

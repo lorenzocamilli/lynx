@@ -232,6 +232,10 @@ func (svc *Service) DeleteRequests(ctx context.Context, projectID ulid.ULID) err
 	return svc.repo.DeleteSenderRequests(ctx, projectID)
 }
 
+func (svc *Service) DeleteRequest(ctx context.Context, id ulid.ULID) error {
+	return svc.repo.DeleteSenderRequest(ctx, svc.activeProjectID, id)
+}
+
 func (e SendError) Error() string {
 	return fmt.Sprintf("failed to send HTTP request: %v", e.err)
 }
