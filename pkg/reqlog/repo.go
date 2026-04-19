@@ -14,4 +14,5 @@ type Repository interface {
 	StoreRequestLog(ctx context.Context, reqLog RequestLog) error
 	StoreResponseLog(ctx context.Context, projectID, reqLogID ulid.ULID, resLog ResponseLog) error
 	ClearRequestLogs(ctx context.Context, projectID ulid.ULID) error
+	DeleteRequestLog(ctx context.Context, projectID, id ulid.ULID) error
 }

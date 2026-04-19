@@ -137,12 +137,14 @@ type ComplexityRoot struct {
 		CancelRequest                         func(childComplexity int, id ulid.ULID) int
 		CancelResponse                        func(childComplexity int, requestID ulid.ULID) int
 		ClearHTTPRequestLog                   func(childComplexity int) int
+		DeleteHTTPRequestLog                  func(childComplexity int, id ulid.ULID) int
 		CloseProject                          func(childComplexity int) int
 		CreateOrUpdateSenderRequest           func(childComplexity int, request SenderRequestInput) int
 		CreateProject                         func(childComplexity int, name string) int
 		CreateSenderRequestFromHTTPRequestLog func(childComplexity int, id ulid.ULID) int
 		DeleteProject                         func(childComplexity int, id ulid.ULID) int
 		DeleteSenderRequests                  func(childComplexity int) int
+		DeleteSenderRequest                   func(childComplexity int, id ulid.ULID) int
 		ModifyRequest                         func(childComplexity int, request ModifyRequestInput) int
 		ModifyResponse                        func(childComplexity int, response ModifyResponseInput) int
 		OpenProject                           func(childComplexity int, id ulid.ULID) int
@@ -212,6 +214,7 @@ type MutationResolver interface {
 	CloseProject(ctx context.Context) (*CloseProjectResult, error)
 	DeleteProject(ctx context.Context, id ulid.ULID) (*DeleteProjectResult, error)
 	ClearHTTPRequestLog(ctx context.Context) (*ClearHTTPRequestLogResult, error)
+	DeleteHTTPRequestLog(ctx context.Context, id ulid.ULID) (*ClearHTTPRequestLogResult, error)
 	SetScope(ctx context.Context, scope []ScopeRuleInput) ([]ScopeRule, error)
 	SetHTTPRequestLogFilter(ctx context.Context, filter *HTTPRequestLogFilterInput) (*HTTPRequestLogFilter, error)
 	SetSenderRequestFilter(ctx context.Context, filter *SenderRequestFilterInput) (*SenderRequestFilter, error)
@@ -219,6 +222,7 @@ type MutationResolver interface {
 	CreateSenderRequestFromHTTPRequestLog(ctx context.Context, id ulid.ULID) (*SenderRequest, error)
 	SendRequest(ctx context.Context, id ulid.ULID) (*SenderRequest, error)
 	DeleteSenderRequests(ctx context.Context) (*DeleteSenderRequestsResult, error)
+	DeleteSenderRequest(ctx context.Context, id ulid.ULID) (*DeleteSenderRequestsResult, error)
 	ModifyRequest(ctx context.Context, request ModifyRequestInput) (*ModifyRequestResult, error)
 	CancelRequest(ctx context.Context, id ulid.ULID) (*CancelRequestResult, error)
 	ModifyResponse(ctx context.Context, response ModifyResponseInput) (*ModifyResponseResult, error)
@@ -578,6 +582,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.CancelResponse(childComplexity, args["requestID"].(ulid.ULID)), true
 
+	case "Mutation.deleteHTTPRequestLog":
+		if e.complexity.Mutation.DeleteHTTPRequestLog == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteHTTPRequestLog_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteHTTPRequestLog(childComplexity, args["id"].(ulid.ULID)), true
+
 	case "Mutation.clearHTTPRequestLog":
 		if e.complexity.Mutation.ClearHTTPRequestLog == nil {
 			break
@@ -639,6 +655,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.DeleteProject(childComplexity, args["id"].(ulid.ULID)), true
+
+	case "Mutation.deleteSenderRequest":
+		if e.complexity.Mutation.DeleteSenderRequest == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteSenderRequest_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteSenderRequest(childComplexity, args["id"].(ulid.ULID)), true
 
 	case "Mutation.deleteSenderRequests":
 		if e.complexity.Mutation.DeleteSenderRequests == nil {
@@ -1252,6 +1280,7 @@ type Mutation {
   closeProject: CloseProjectResult!
   deleteProject(id: ID!): DeleteProjectResult!
   clearHTTPRequestLog: ClearHTTPRequestLogResult!
+  deleteHTTPRequestLog(id: ID!): ClearHTTPRequestLogResult!
   setScope(scope: [ScopeRuleInput!]!): [ScopeRule!]!
   setHttpRequestLogFilter(
     filter: HttpRequestLogFilterInput
@@ -1261,6 +1290,7 @@ type Mutation {
   createSenderRequestFromHttpRequestLog(id: ID!): SenderRequest!
   sendRequest(id: ID!): SenderRequest!
   deleteSenderRequests: DeleteSenderRequestsResult!
+  deleteSenderRequest(id: ID!): DeleteSenderRequestsResult!
   modifyRequest(request: ModifyRequestInput!): ModifyRequestResult!
   cancelRequest(id: ID!): CancelRequestResult!
   modifyResponse(response: ModifyResponseInput!): ModifyResponseResult!
@@ -1420,6 +1450,36 @@ func (ec *executionContext) field_Mutation_modifyResponse_args(ctx context.Conte
 }
 
 func (ec *executionContext) field_Mutation_openProject_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 ulid.ULID
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+		arg0, err = ec.unmarshalNID2githubᚗcomᚋoklogᚋulidᚐULID(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteHTTPRequestLog_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 ulid.ULID
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+		arg0, err = ec.unmarshalNID2githubᚗcomᚋoklogᚋulidᚐULID(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteSenderRequest_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
 	var arg0 ulid.ULID
@@ -3240,6 +3300,48 @@ func (ec *executionContext) _Mutation_deleteProject(ctx context.Context, field g
 	return ec.marshalNDeleteProjectResult2ᚖgithubᚗcomᚋdstotijnᚋhettyᚋpkgᚋapiᚐDeleteProjectResult(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Mutation_deleteHTTPRequestLog(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_deleteHTTPRequestLog_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx
+		return ec.resolvers.Mutation().DeleteHTTPRequestLog(rctx, args["id"].(ulid.ULID))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*ClearHTTPRequestLogResult)
+	fc.Result = res
+	return ec.marshalNClearHTTPRequestLogResult2ᚖgithubᚗcomᚋdstotijnᚋhettyᚋpkgᚋapiᚐClearHTTPRequestLogResult(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Mutation_clearHTTPRequestLog(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -3519,6 +3621,48 @@ func (ec *executionContext) _Mutation_sendRequest(ctx context.Context, field gra
 	res := resTmp.(*SenderRequest)
 	fc.Result = res
 	return ec.marshalNSenderRequest2ᚖgithubᚗcomᚋdstotijnᚋhettyᚋpkgᚋapiᚐSenderRequest(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_deleteSenderRequest(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_deleteSenderRequest_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx
+		return ec.resolvers.Mutation().DeleteSenderRequest(rctx, args["id"].(ulid.ULID))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*DeleteSenderRequestsResult)
+	fc.Result = res
+	return ec.marshalNDeleteSenderRequestsResult2ᚖgithubᚗcomᚋdstotijnᚋhettyᚋpkgᚋapiᚐDeleteSenderRequestsResult(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteSenderRequests(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6987,6 +7131,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
+		case "deleteHTTPRequestLog":
+			out.Values[i] = ec._Mutation_deleteHTTPRequestLog(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		case "setScope":
 			out.Values[i] = ec._Mutation_setScope(ctx, field)
 			if out.Values[i] == graphql.Null {
@@ -7008,6 +7157,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "sendRequest":
 			out.Values[i] = ec._Mutation_sendRequest(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "deleteSenderRequest":
+			out.Values[i] = ec._Mutation_deleteSenderRequest(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}

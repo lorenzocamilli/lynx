@@ -268,6 +268,21 @@ func (r *mutationResolver) DeleteProject(ctx context.Context, id ulid.ULID) (*De
 	}, nil
 }
 
+func (r *mutationResolver) DeleteHTTPRequestLog(ctx context.Context, id ulid.ULID) (*ClearHTTPRequestLogResult, error) {
+	project, err := r.ProjectService.ActiveProject(ctx)
+	if errors.Is(err, proj.ErrNoProject) {
+		return nil, noActiveProjectErr(ctx)
+	} else if err != nil {
+		return nil, fmt.Errorf("could not get active project: %w", err)
+	}
+
+	if err := r.RequestLogService.DeleteRequest(ctx, project.ID, id); err != nil {
+		return nil, fmt.Errorf("could not delete request log: %w", err)
+	}
+
+	return &ClearHTTPRequestLogResult{true}, nil
+}
+
 func (r *mutationResolver) ClearHTTPRequestLog(ctx context.Context) (*ClearHTTPRequestLogResult, error) {
 	project, err := r.ProjectService.ActiveProject(ctx)
 	if errors.Is(err, proj.ErrNoProject) {
@@ -504,6 +519,14 @@ func (r *mutationResolver) SendRequest(ctx context.Context, id ulid.ULID) (*Send
 	}
 
 	return &senderReq, nil
+}
+
+func (r *mutationResolver) DeleteSenderRequest(ctx context.Context, id ulid.ULID) (*DeleteSenderRequestsResult, error) {
+	if err := r.SenderService.DeleteRequest(ctx, id); err != nil {
+		return nil, fmt.Errorf("could not delete sender request: %w", err)
+	}
+
+	return &DeleteSenderRequestsResult{true}, nil
 }
 
 func (r *mutationResolver) DeleteSenderRequests(ctx context.Context) (*DeleteSenderRequestsResult, error) {

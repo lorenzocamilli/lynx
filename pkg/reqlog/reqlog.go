@@ -101,6 +101,10 @@ func (svc *Service) ClearRequests(ctx context.Context, projectID ulid.ULID) erro
 	return svc.repo.ClearRequestLogs(ctx, projectID)
 }
 
+func (svc *Service) DeleteRequest(ctx context.Context, projectID, id ulid.ULID) error {
+	return svc.repo.DeleteRequestLog(ctx, projectID, id)
+}
+
 func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *http.Response) error {
 	resLog, err := ParseHTTPResponse(res)
 	if err != nil {
