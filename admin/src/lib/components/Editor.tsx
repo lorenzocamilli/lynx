@@ -11,19 +11,23 @@ const defaultMonacoOptions: EditorProps["options"] = {
 type language = "html" | "typescript" | "json";
 
 function languageForContentType(contentType?: string): language | undefined {
-  switch (contentType?.toLowerCase()) {
-    case "text/html":
-    case "text/html; charset=utf-8":
-      return "html";
-    case "application/json":
-    case "application/json; charset=utf-8":
-      return "json";
-    case "application/javascript":
-    case "application/javascript; charset=utf-8":
-      return "typescript";
-    default:
-      return;
+  const ct = contentType?.toLowerCase() ?? "";
+  if (ct.startsWith("text/html")) return "html";
+  if (ct.startsWith("application/json") || ct.includes("+json")) return "json";
+  if (ct.startsWith("application/javascript")) return "typescript";
+  return undefined;
+}
+
+function formatContent(content: string, contentType?: string): string {
+  const lang = languageForContentType(contentType);
+  if (lang === "json") {
+    try {
+      return JSON.stringify(JSON.parse(content), null, 2);
+    } catch {
+      // fall through to raw content
+    }
   }
+  return content;
 }
 
 interface Props {

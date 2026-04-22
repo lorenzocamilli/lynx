@@ -2,6 +2,7 @@ package reqlog
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -98,6 +99,10 @@ func (svc *Service) FindRequestLogByID(ctx context.Context, id ulid.ULID) (Reque
 
 func (svc *Service) ClearRequests(ctx context.Context, projectID ulid.ULID) error {
 	return svc.repo.ClearRequestLogs(ctx, projectID)
+}
+
+func (svc *Service) DeleteRequest(ctx context.Context, projectID, id ulid.ULID) error {
+	return svc.repo.DeleteRequestLog(ctx, projectID, id)
 }
 
 func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *http.Response) error {
@@ -256,16 +261,30 @@ func (svc *Service) BypassOutOfScopeRequests() bool {
 }
 
 func ParseHTTPResponse(res *http.Response) (ResponseLog, error) {
-	body, err := io.ReadAll(res.Body)
+	bodyReader := res.Body
+
+	if res.Header.Get("Content-Encoding") == "gzip" {
+		gzipReader, err := gzip.NewReader(res.Body)
+		if err != nil {
+			return ResponseLog{}, fmt.Errorf("reqlog: could not create gzip reader: %w", err)
+		}
+		defer gzipReader.Close()
+		bodyReader = gzipReader
+	}
+
+	body, err := io.ReadAll(bodyReader)
 	if err != nil {
 		return ResponseLog{}, fmt.Errorf("reqlog: could not read body: %w", err)
 	}
+
+	header := res.Header.Clone()
+	header.Del("Content-Encoding")
 
 	return ResponseLog{
 		Proto:      res.Proto,
 		StatusCode: res.StatusCode,
 		Status:     res.Status,
-		Header:     res.Header,
+		Header:     header,
 		Body:       body,
 	}, nil
 }

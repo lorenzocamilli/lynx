@@ -1,0 +1,5 @@
+mutation DeleteHttpRequestLog($id: ID!) {
+  deleteHTTPRequestLog(id: $id) {
+    success
+  }
+}

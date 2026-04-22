@@ -13,4 +13,5 @@ type Repository interface {
 	FindSenderRequests(ctx context.Context, filter FindRequestsFilter, scope *scope.Scope) ([]Request, error)
 	StoreSenderRequest(ctx context.Context, req Request) error
 	DeleteSenderRequests(ctx context.Context, projectID ulid.ULID) error
+	DeleteSenderRequest(ctx context.Context, projectID, id ulid.ULID) error
 }
