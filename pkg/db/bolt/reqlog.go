@@ -188,6 +188,26 @@ func (db *Database) StoreResponseLog(ctx context.Context, projectID, reqLogID ul
 	return nil
 }
 
+func (db *Database) DeleteRequestLog(ctx context.Context, projectID, id ulid.ULID) error {
+	err := db.bolt.Update(func(tx *bolt.Tx) error {
+		b, err := requestLogsBucket(tx, projectID)
+		if err != nil {
+			return fmt.Errorf("failed to get request logs bucket: %w", err)
+		}
+
+		if err := b.Delete(id[:]); err != nil {
+			return fmt.Errorf("failed to delete request log: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("bolt: failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 func (db *Database) ClearRequestLogs(ctx context.Context, projectID ulid.ULID) error {
 	err := db.bolt.Update(func(txn *bolt.Tx) error {
 		pb, err := projectBucket(txn, projectID[:])

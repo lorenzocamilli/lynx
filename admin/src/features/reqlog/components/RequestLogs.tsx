@@ -9,14 +9,20 @@ import Search from "./Search";
 import RequestsTable from "lib/components/RequestsTable";
 import SplitPane from "lib/components/SplitPane";
 import useContextMenu from "lib/components/useContextMenu";
-import { useCreateSenderRequestFromHttpRequestLogMutation, useHttpRequestLogsQuery } from "lib/graphql/generated";
+import {
+  useCreateSenderRequestFromHttpRequestLogMutation,
+  useDeleteHttpRequestLogMutation,
+  useHttpRequestLogsQuery,
+} from "lib/graphql/generated";
 
 export function RequestLogs(): JSX.Element {
   const router = useRouter();
   const id = router.query.id as string | undefined;
-  const { data } = useHttpRequestLogsQuery({
+  const { data, refetch } = useHttpRequestLogsQuery({
     pollInterval: 1000,
   });
+
+  const [deleteHttpRequestLog] = useDeleteHttpRequestLogMutation();
 
   const [createSenderReqFromLog] = useCreateSenderRequestFromHttpRequestLogMutation({
     onCompleted({ createSenderRequestFromHttpRequestLog }) {
@@ -30,12 +36,17 @@ export function RequestLogs(): JSX.Element {
   const [Menu, handleContextMenu, handleContextMenuClose] = useContextMenu();
 
   const handleCopyToSenderClick = () => {
-    createSenderReqFromLog({
-      variables: {
-        id: copyToSenderId,
-      },
-    });
+    createSenderReqFromLog({ variables: { id: copyToSenderId } });
     handleContextMenuClose();
+  };
+
+  const handleDeleteClick = async () => {
+    handleContextMenuClose();
+    await deleteHttpRequestLog({ variables: { id: copyToSenderId } });
+    if (id === copyToSenderId) {
+      router.replace("/proxy/logs");
+    }
+    refetch();
   };
 
   const [newSenderReqId, setNewSenderReqId] = useState("");
@@ -72,6 +83,7 @@ export function RequestLogs(): JSX.Element {
             <Box sx={{ width: "100%", height: "100%", overflow: "scroll" }}>
               <Menu>
                 <MenuItem onClick={handleCopyToSenderClick}>Copy request to Sender</MenuItem>
+                <MenuItem onClick={handleDeleteClick}>Delete request</MenuItem>
               </Menu>
               <Snackbar
                 open={copiedReqNotifOpen}

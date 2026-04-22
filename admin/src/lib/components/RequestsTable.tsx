@@ -72,10 +72,11 @@ interface Props {
   actionsCell?: (id: string) => JSX.Element;
   onRowClick?: (id: string) => void;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
+  oldestFirst?: boolean;
 }
 
 export default function RequestsTable(props: Props): JSX.Element {
-  const { requests, activeRowId, actionsCell, onRowClick, onContextMenu } = props;
+  const { requests, activeRowId, actionsCell, onRowClick, onContextMenu, oldestFirst } = props;
 
   return (
     <TableContainer sx={{ overflowX: "initial" }}>
@@ -91,8 +92,9 @@ export default function RequestsTable(props: Props): JSX.Element {
           </TableRow>
         </TableHead>
         <TableBody>
-          {requests.map(({ id, method, url, response }, index) => {
+          {(oldestFirst ? [...requests].reverse() : requests).map(({ id, method, url, response }, index) => {
             const { origin, pathname, search, hash } = new URL(url);
+            const rowNumber = oldestFirst ? index + 1 : requests.length - index;
 
             return (
               <RequestTableRow
@@ -103,10 +105,11 @@ export default function RequestsTable(props: Props): JSX.Element {
                   onRowClick && onRowClick(id);
                 }}
                 onContextMenu={(e) => {
+                  e.preventDefault();
                   onContextMenu && onContextMenu(e, id);
                 }}
               >
-                <NumberTableCell>{requests.length - index}</NumberTableCell>
+                <NumberTableCell>{rowNumber}</NumberTableCell>
                 <MethodTableCell>
                   <code>{method}</code>
                 </MethodTableCell>

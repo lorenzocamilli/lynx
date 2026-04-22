@@ -150,6 +150,26 @@ func (db *Database) FindSenderRequests(ctx context.Context, filter sender.FindRe
 	return reqs, nil
 }
 
+func (db *Database) DeleteSenderRequest(ctx context.Context, projectID, id ulid.ULID) error {
+	err := db.bolt.Update(func(tx *bolt.Tx) error {
+		b, err := senderReqsBucket(tx, projectID)
+		if err != nil {
+			return fmt.Errorf("failed to get sender requests bucket: %w", err)
+		}
+
+		if err := b.Delete(id[:]); err != nil {
+			return fmt.Errorf("failed to delete sender request: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("bolt: failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 func (db *Database) DeleteSenderRequests(ctx context.Context, projectID ulid.ULID) error {
 	err := db.bolt.Update(func(tx *bolt.Tx) error {
 		senderReqsBucket, err := senderReqsBucket(tx, projectID)

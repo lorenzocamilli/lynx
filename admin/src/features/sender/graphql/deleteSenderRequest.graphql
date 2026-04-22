@@ -1,0 +1,5 @@
+mutation DeleteSenderRequest($id: ID!) {
+  deleteSenderRequest(id: $id) {
+    success
+  }
+}
