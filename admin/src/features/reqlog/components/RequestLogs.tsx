@@ -19,7 +19,7 @@ export function RequestLogs(): JSX.Element {
   const router = useRouter();
   const id = router.query.id as string | undefined;
   const { data, refetch } = useHttpRequestLogsQuery({
-    pollInterval: 1000,
+    pollInterval: 4000,
   });
 
   const [deleteHttpRequestLog] = useDeleteHttpRequestLogMutation();
