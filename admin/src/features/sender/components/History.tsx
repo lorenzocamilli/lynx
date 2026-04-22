@@ -8,7 +8,7 @@ import { useDeleteSenderRequestMutation, useGetSenderRequestsQuery } from "lib/g
 
 function History(): JSX.Element {
   const { data, loading, refetch } = useGetSenderRequestsQuery({
-    pollInterval: 1000,
+    pollInterval: 4000,
   });
 
   const router = useRouter();
