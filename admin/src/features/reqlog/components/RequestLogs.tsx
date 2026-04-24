@@ -14,12 +14,17 @@ import {
   useDeleteHttpRequestLogMutation,
   useHttpRequestLogsQuery,
 } from "lib/graphql/generated";
+import { useSSE } from "lib/useSSE";
 
 export function RequestLogs(): JSX.Element {
   const router = useRouter();
   const id = router.query.id as string | undefined;
-  const { data, refetch } = useHttpRequestLogsQuery({
-    pollInterval: 4000,
+  const { data, refetch } = useHttpRequestLogsQuery();
+
+  useSSE((type) => {
+    if (type === "request_log" || type === "response_log") {
+      refetch();
+    }
   });
 
   const [deleteHttpRequestLog] = useDeleteHttpRequestLogMutation();
