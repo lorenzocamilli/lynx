@@ -25,7 +25,7 @@ export function RequestLogs(): JSX.Element {
     if (type === "request_log" || type === "response_log") {
       refetch();
     }
-  });
+  }, 300);
 
   const [deleteHttpRequestLog] = useDeleteHttpRequestLogMutation();
 

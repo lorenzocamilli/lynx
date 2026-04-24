@@ -5,15 +5,22 @@ import RequestDetail from "./RequestDetail";
 import Response from "lib/components/Response";
 import SplitPane from "lib/components/SplitPane";
 import { useHttpRequestLogQuery } from "lib/graphql/generated";
+import { useSSE } from "lib/useSSE";
 
 interface Props {
   id?: string;
 }
 
 function LogDetail({ id }: Props): JSX.Element {
-  const { loading, error, data } = useHttpRequestLogQuery({
+  const { loading, error, data, refetch } = useHttpRequestLogQuery({
     variables: { id: id as string },
     skip: id === undefined,
+  });
+
+  useSSE((type) => {
+    if (type === "response_log" && id !== undefined) {
+      refetch();
+    }
   });
 
   if (loading) {
