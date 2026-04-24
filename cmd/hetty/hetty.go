@@ -27,6 +27,7 @@ import (
 	"github.com/dstotijn/hetty/pkg/reqlog"
 	"github.com/dstotijn/hetty/pkg/scope"
 	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/dstotijn/hetty/pkg/sse"
 )
 
 var version = "0.0.0"
@@ -158,14 +159,18 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 
 	scope := &scope.Scope{}
 
+	broadcaster := sse.NewBroadcaster()
+
 	reqLogService := reqlog.NewService(reqlog.Config{
-		Scope:      scope,
-		Repository: boltDB,
-		Logger:     cmd.config.logger.Named("reqlog").Sugar(),
+		Scope:       scope,
+		Repository:  boltDB,
+		Logger:      cmd.config.logger.Named("reqlog").Sugar(),
+		Broadcaster: broadcaster,
 	})
 
 	interceptService := intercept.NewService(intercept.Config{
-		Logger: cmd.config.logger.Named("intercept").Sugar(),
+		Logger:      cmd.config.logger.Named("intercept").Sugar(),
+		Broadcaster: broadcaster,
 	})
 
 	senderService := sender.NewService(sender.Config{
@@ -230,6 +235,9 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 		InterceptService:  interceptService,
 		SenderService:     senderService,
 	}, gqlEndpoint))
+
+	// SSE event stream.
+	adminRouter.Path("/api/events").Handler(sse.Handler(broadcaster))
 
 	// Admin interface.
 	adminRouter.PathPrefix("").Handler(adminHandler)

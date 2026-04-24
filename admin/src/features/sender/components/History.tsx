@@ -7,9 +7,7 @@ import useContextMenu from "lib/components/useContextMenu";
 import { useDeleteSenderRequestMutation, useGetSenderRequestsQuery } from "lib/graphql/generated";
 
 function History(): JSX.Element {
-  const { data, loading, refetch } = useGetSenderRequestsQuery({
-    pollInterval: 4000,
-  });
+  const { data, loading, refetch } = useGetSenderRequestsQuery();
 
   const router = useRouter();
   const activeId = router.query.id as string | undefined;
