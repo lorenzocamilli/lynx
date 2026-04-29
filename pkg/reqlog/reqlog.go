@@ -67,6 +67,8 @@ type FindRequestsFilter struct {
 	ProjectID   ulid.ULID
 	OnlyInScope bool
 	SearchExpr  filter.Expression
+	Limit       int
+	Offset      int
 }
 
 type Config struct {
@@ -99,12 +101,19 @@ func (svc *Service) emit(t sse.EventType) {
 	}
 }
 
-func (svc *Service) FindRequests(ctx context.Context) ([]RequestLog, error) {
-	return svc.repo.FindRequestLogs(ctx, svc.findReqsFilter, svc.scope)
+func (svc *Service) FindRequests(ctx context.Context, limit, offset int) ([]RequestLog, error) {
+	filter := svc.findReqsFilter
+	filter.Limit = limit
+	filter.Offset = offset
+	return svc.repo.FindRequestLogs(ctx, filter, svc.scope)
 }
 
 func (svc *Service) FindRequestLogByID(ctx context.Context, id ulid.ULID) (RequestLog, error) {
 	return svc.repo.FindRequestLogByID(ctx, svc.activeProjectID, id)
+}
+
+func (svc *Service) CountRequests(ctx context.Context) (int, error) {
+	return svc.repo.CountRequestLogs(ctx, svc.activeProjectID)
 }
 
 func (svc *Service) ClearRequests(ctx context.Context, projectID ulid.ULID) error {

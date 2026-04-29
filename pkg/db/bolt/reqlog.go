@@ -49,43 +49,58 @@ func (db *Database) FindRequestLogs(ctx context.Context, filter reqlog.FindReque
 		return nil, fmt.Errorf("bolt: failed to get request logs bucket: %w", err)
 	}
 
-	err = b.ForEach(func(reqLogID, rawReqLog []byte) error {
+	c := b.Cursor()
+	skipped := 0
+
+	for k, v := c.Last(); k != nil; k, v = c.Prev() {
 		var reqLog reqlog.RequestLog
-		err = gob.NewDecoder(bytes.NewReader(rawReqLog)).Decode(&reqLog)
-		if err != nil {
-			return fmt.Errorf("failed to decode request log: %w", err)
+		if err = gob.NewDecoder(bytes.NewReader(v)).Decode(&reqLog); err != nil {
+			return nil, fmt.Errorf("bolt: failed to decode request log: %w", err)
 		}
 
 		if filter.OnlyInScope && !reqLog.MatchScope(scope) {
-			return nil
+			continue
 		}
 
-		// Filter by search expression. TODO: Once pagination is introduced,
-		// this filter logic should be done as items are retrieved.
 		if filter.SearchExpr != nil {
 			match, err := reqLog.Matches(filter.SearchExpr)
 			if err != nil {
-				return fmt.Errorf("failed to match search expression for request log (id: %v): %w", reqLogID, err)
+				return nil, fmt.Errorf("bolt: failed to match search expression for request log (id: %v): %w", k, err)
 			}
 
 			if !match {
-				return nil
+				continue
 			}
 		}
 
-		reqLogs = append(reqLogs, reqLog)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("bolt: failed to iterate over request logs: %w", err)
-	}
+		if skipped < filter.Offset {
+			skipped++
+			continue
+		}
 
-	// Reverse items, so newest requests appear first.
-	for i, j := 0, len(reqLogs)-1; i < j; i, j = i+1, j-1 {
-		reqLogs[i], reqLogs[j] = reqLogs[j], reqLogs[i]
+		reqLogs = append(reqLogs, reqLog)
+
+		if filter.Limit > 0 && len(reqLogs) >= filter.Limit {
+			break
+		}
 	}
 
 	return reqLogs, nil
+}
+
+func (db *Database) CountRequestLogs(ctx context.Context, projectID ulid.ULID) (int, error) {
+	tx, err := db.bolt.Begin(false)
+	if err != nil {
+		return 0, fmt.Errorf("bolt: failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	b, err := requestLogsBucket(tx, projectID)
+	if err != nil {
+		return 0, fmt.Errorf("bolt: failed to get request logs bucket: %w", err)
+	}
+
+	return b.Stats().KeyN, nil
 }
 
 func (db *Database) FindRequestLogByID(ctx context.Context, projectID, reqLogID ulid.ULID) (reqLog reqlog.RequestLog, err error) {

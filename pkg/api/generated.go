@@ -170,13 +170,14 @@ type ComplexityRoot struct {
 		ActiveProject        func(childComplexity int) int
 		HTTPRequestLog       func(childComplexity int, id ulid.ULID) int
 		HTTPRequestLogFilter func(childComplexity int) int
-		HTTPRequestLogs      func(childComplexity int) int
+		HTTPRequestLogs      func(childComplexity int, limit *int, offset *int) int
+		HTTPRequestLogsCount func(childComplexity int) int
 		InterceptedRequest   func(childComplexity int, id ulid.ULID) int
 		InterceptedRequests  func(childComplexity int) int
 		Projects             func(childComplexity int) int
 		Scope                func(childComplexity int) int
 		SenderRequest        func(childComplexity int, id ulid.ULID) int
-		SenderRequests       func(childComplexity int) int
+		SenderRequests       func(childComplexity int, limit *int, offset *int) int
 	}
 
 	ScopeHeader struct {
@@ -231,13 +232,14 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	HTTPRequestLog(ctx context.Context, id ulid.ULID) (*HTTPRequestLog, error)
-	HTTPRequestLogs(ctx context.Context) ([]HTTPRequestLog, error)
+	HTTPRequestLogs(ctx context.Context, limit *int, offset *int) ([]HTTPRequestLog, error)
+	HTTPRequestLogsCount(ctx context.Context) (int, error)
 	HTTPRequestLogFilter(ctx context.Context) (*HTTPRequestLogFilter, error)
 	ActiveProject(ctx context.Context) (*Project, error)
 	Projects(ctx context.Context) ([]Project, error)
 	Scope(ctx context.Context) ([]ScopeRule, error)
 	SenderRequest(ctx context.Context, id ulid.ULID) (*SenderRequest, error)
-	SenderRequests(ctx context.Context) ([]SenderRequest, error)
+	SenderRequests(ctx context.Context, limit *int, offset *int) ([]SenderRequest, error)
 	InterceptedRequests(ctx context.Context) ([]HTTPRequest, error)
 	InterceptedRequest(ctx context.Context, id ulid.ULID) (*HTTPRequest, error)
 }
@@ -837,7 +839,19 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.Query.HTTPRequestLogs(childComplexity), true
+		args, err := ec.field_Query_httpRequestLogs_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.HTTPRequestLogs(childComplexity, args["limit"].(*int), args["offset"].(*int)), true
+
+	case "Query.httpRequestLogsCount":
+		if e.complexity.Query.HTTPRequestLogsCount == nil {
+			break
+		}
+
+		return e.complexity.Query.HTTPRequestLogsCount(childComplexity), true
 
 	case "Query.interceptedRequest":
 		if e.complexity.Query.InterceptedRequest == nil {
@@ -889,7 +903,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.Query.SenderRequests(childComplexity), true
+		args, err := ec.field_Query_senderRequests_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.SenderRequests(childComplexity, args["limit"].(*int), args["offset"].(*int)), true
 
 	case "ScopeHeader.key":
 		if e.complexity.ScopeHeader.Key == nil {
@@ -1263,13 +1282,14 @@ type InterceptSettings {
 
 type Query {
   httpRequestLog(id: ID!): HttpRequestLog
-  httpRequestLogs: [HttpRequestLog!]!
+  httpRequestLogs(limit: Int, offset: Int): [HttpRequestLog!]!
+  httpRequestLogsCount: Int!
   httpRequestLogFilter: HttpRequestLogFilter
   activeProject: Project
   projects: [Project!]!
   scope: [ScopeRule!]!
   senderRequest(id: ID!): SenderRequest
-  senderRequests: [SenderRequest!]!
+  senderRequests(limit: Int, offset: Int): [SenderRequest!]!
   interceptedRequests: [HttpRequest!]!
   interceptedRequest(id: ID!): HttpRequest
 }
@@ -1581,6 +1601,54 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		}
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_httpRequestLogs_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *int
+	if tmp, ok := rawArgs["limit"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
+		arg0, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["limit"] = arg0
+	var arg1 *int
+	if tmp, ok := rawArgs["offset"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("offset"))
+		arg1, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["offset"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_senderRequests_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *int
+	if tmp, ok := rawArgs["limit"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("limit"))
+		arg0, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["limit"] = arg0
+	var arg1 *int
+	if tmp, ok := rawArgs["offset"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("offset"))
+		arg1, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["offset"] = arg1
 	return args, nil
 }
 
@@ -4140,9 +4208,16 @@ func (ec *executionContext) _Query_httpRequestLogs(ctx context.Context, field gr
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_httpRequestLogs_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().HTTPRequestLogs(rctx)
+		return ec.resolvers.Query().HTTPRequestLogs(rctx, args["limit"].(*int), args["offset"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4157,6 +4232,41 @@ func (ec *executionContext) _Query_httpRequestLogs(ctx context.Context, field gr
 	res := resTmp.([]HTTPRequestLog)
 	fc.Result = res
 	return ec.marshalNHttpRequestLog2ᚕgithubᚗcomᚋdstotijnᚋhettyᚋpkgᚋapiᚐHTTPRequestLogᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Query_httpRequestLogsCount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx
+		return ec.resolvers.Query().HTTPRequestLogsCount(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_httpRequestLogFilter(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -4348,9 +4458,16 @@ func (ec *executionContext) _Query_senderRequests(ctx context.Context, field gra
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_senderRequests_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().SenderRequests(rctx)
+		return ec.resolvers.Query().SenderRequests(rctx, args["limit"].(*int), args["offset"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -7315,6 +7432,20 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}
 				return res
 			})
+		case "httpRequestLogsCount":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_httpRequestLogsCount(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		case "httpRequestLogFilter":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -9144,6 +9275,21 @@ func (ec *executionContext) marshalO__Type2ᚖgithubᚗcomᚋ99designsᚋgqlgen�
 		return graphql.Null
 	}
 	return ec.___Type(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint(ctx context.Context, v interface{}) (*int, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalInt(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.SelectionSet, v *int) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return graphql.MarshalInt(*v)
 }
 
 // endregion ***************************** type.gotpl *****************************

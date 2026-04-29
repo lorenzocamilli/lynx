@@ -74,6 +74,7 @@ interface Props {
   onRowClick?: (id: string) => void;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
   oldestFirst?: boolean;
+  rowNumberBase?: number;
 }
 
 interface RowProps {
@@ -125,7 +126,7 @@ const RequestRow = React.memo(function RequestRow({
 });
 
 export default function RequestsTable(props: Props): JSX.Element {
-  const { requests, activeRowId, actionsCell, onRowClick, onContextMenu, oldestFirst } = props;
+  const { requests, activeRowId, actionsCell, onRowClick, onContextMenu, oldestFirst, rowNumberBase } = props;
 
   // Store latest callbacks in refs so memoized rows always call the current version
   // without needing to re-render just because the parent passed a new function reference.
@@ -157,7 +158,8 @@ export default function RequestsTable(props: Props): JSX.Element {
         </TableHead>
         <TableBody>
           {rows.map(({ id, method, url, response }, index) => {
-            const rowNumber = oldestFirst ? index + 1 : requests.length - index;
+            const base = rowNumberBase || rows.length;
+            const rowNumber = oldestFirst ? index + 1 : base - index;
             return (
               <RequestRow
                 key={id}
