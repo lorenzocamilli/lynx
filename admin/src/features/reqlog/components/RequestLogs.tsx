@@ -1,4 +1,4 @@
-import { Alert, Box, Link, MenuItem, Snackbar } from "@mui/material";
+import { Alert, Box, Button, Link, MenuItem, Snackbar } from "@mui/material";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
@@ -12,27 +12,41 @@ import useContextMenu from "lib/components/useContextMenu";
 import {
   useCreateSenderRequestFromHttpRequestLogMutation,
   useDeleteHttpRequestLogMutation,
+  useHttpRequestLogsCountQuery,
   useHttpRequestLogsQuery,
 } from "lib/graphql/generated";
 import { useSSE } from "lib/useSSE";
 
+const PAGE_SIZE = 50;
+
 export function RequestLogs(): JSX.Element {
   const router = useRouter();
   const id = router.query.id as string | undefined;
-  const { data, refetch } = useHttpRequestLogsQuery();
+  const [limit, setLimit] = useState(PAGE_SIZE);
+
+  const { data, previousData, refetch } = useHttpRequestLogsQuery({
+    variables: { limit, offset: 0 },
+  });
+
+  const { data: countData, refetch: refetchCount } = useHttpRequestLogsCountQuery({
+    fetchPolicy: "network-only",
+  });
 
   useSSE((type) => {
     if (type === "request_log" || type === "response_log") {
       refetch();
+      refetchCount();
     }
   }, 300);
 
-  const [deleteHttpRequestLog] = useDeleteHttpRequestLogMutation();
+  const requests = (data ?? previousData)?.httpRequestLogs ?? [];
+  const totalCount = countData?.httpRequestLogsCount ?? 0;
+  const showLoadMore = requests.length >= limit;
 
+  const [deleteHttpRequestLog] = useDeleteHttpRequestLogMutation();
   const [createSenderReqFromLog] = useCreateSenderRequestFromHttpRequestLogMutation({
     onCompleted({ createSenderRequestFromHttpRequestLog }) {
-      const { id } = createSenderRequestFromHttpRequestLog;
-      setNewSenderReqId(id);
+      setNewSenderReqId(createSenderRequestFromHttpRequestLog.id);
       setCopiedReqNotifOpen(true);
     },
   });
@@ -52,23 +66,22 @@ export function RequestLogs(): JSX.Element {
       router.replace("/proxy/logs");
     }
     refetch();
+    refetchCount();
   };
 
   const [newSenderReqId, setNewSenderReqId] = useState("");
   const [copiedReqNotifOpen, setCopiedReqNotifOpen] = useState(false);
   const handleCloseCopiedNotif = (_: Event | React.SyntheticEvent, reason?: string) => {
-    if (reason === "clickaway") {
-      return;
-    }
+    if (reason === "clickaway") return;
     setCopiedReqNotifOpen(false);
   };
 
-  const handleRowClick = (id: string) => {
-    router.push(`/proxy/logs?id=${id}`);
+  const handleRowClick = (rowId: string) => {
+    router.push(`/proxy/logs?id=${rowId}`);
   };
 
-  const handleRowContextClick = (e: React.MouseEvent, id: string) => {
-    setCopyToSenderId(id);
+  const handleRowContextClick = (e: React.MouseEvent, rowId: string) => {
+    setCopyToSenderId(rowId);
     handleContextMenu(e);
   };
 
@@ -101,11 +114,19 @@ export function RequestLogs(): JSX.Element {
                 </Alert>
               </Snackbar>
               <RequestsTable
-                requests={data?.httpRequestLogs || []}
+                requests={requests}
                 activeRowId={id}
                 onRowClick={handleRowClick}
                 onContextMenu={handleRowContextClick}
+                rowNumberBase={totalCount || requests.length}
               />
+              {showLoadMore && (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+                  <Button size="small" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
+                    Load older
+                  </Button>
+                </Box>
+              )}
             </Box>
           </Box>
           <LogDetail id={id} />
