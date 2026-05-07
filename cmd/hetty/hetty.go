@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"embed"
-	"flag"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net"
@@ -15,11 +15,11 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/go-homedir"
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
 	"github.com/dstotijn/hetty/pkg/api"
+	"github.com/dstotijn/hetty/pkg/config"
 	"github.com/dstotijn/hetty/pkg/db/bolt"
 	"github.com/dstotijn/hetty/pkg/proj"
 	"github.com/dstotijn/hetty/pkg/proxy"
@@ -38,122 +38,42 @@ var version = "0.0.0"
 //go:embed admin/_next/static/*/*.js
 var adminContent embed.FS
 
-var hettyUsage = `
-Usage:
-    hetty [flags] [subcommand] [flags]
-
-Runs an HTTP server with (MITM) proxy, GraphQL service, and a web based admin interface.
-
-Options:
-    --cert         Path to root CA certificate. Creates file if it doesn't exist. (Default: "~/.hetty/hetty_cert.pem")
-    --key          Path to root CA private key. Creates file if it doesn't exist. (Default: "~/.hetty/hetty_key.pem")
-    --db           Database file path. Creates file if it doesn't exist. (Default: "~/.hetty/hetty.db")
-    --addr         TCP address for HTTP server to listen on, in the form \"host:port\". (Default: ":8080")
-    --verbose      Enable verbose logging.
-    --json         Encode logs as JSON, instead of pretty/human readable output.
-    --version, -v  Output version.
-    --help, -h     Output this usage text.
-
-Subcommands:
-    - cert  Certificate management
-
-Run ` + "`hetty <subcommand> --help`" + ` for subcommand specific usage instructions.
-
-Visit https://hetty.xyz to learn more about Hetty.
-`
-
-type HettyCommand struct {
-	config *Config
-
-	cert    string
-	key     string
-	db      string
-	addr    string
-	version bool
-}
-
-func NewHettyCommand() (*ffcli.Command, *Config) {
-	cmd := HettyCommand{
-		config: &Config{},
-	}
-
-	fs := flag.NewFlagSet("hetty", flag.ExitOnError)
-
-	fs.StringVar(&cmd.cert, "cert", "~/.hetty/hetty_cert.pem",
-		"Path to root CA certificate. Creates a new certificate if file doesn't exist.")
-	fs.StringVar(&cmd.key, "key", "~/.hetty/hetty_key.pem",
-		"Path to root CA private key. Creates a new private key if file doesn't exist.")
-	fs.StringVar(&cmd.db, "db", "~/.hetty/hetty.db", "Database file path. Creates file if it doesn't exist.")
-	fs.StringVar(&cmd.addr, "addr", ":8080", "TCP address to listen on, in the form \"host:port\".")
-	fs.BoolVar(&cmd.version, "version", false, "Output version.")
-	fs.BoolVar(&cmd.version, "v", false, "Output version.")
-
-	cmd.config.RegisterFlags(fs)
-
-	return &ffcli.Command{
-		Name:    "hetty",
-		FlagSet: fs,
-		Subcommands: []*ffcli.Command{
-			NewCertCommand(cmd.config),
-		},
-		Exec: cmd.Exec,
-		UsageFunc: func(*ffcli.Command) string {
-			return hettyUsage
-		},
-	}, cmd.config
-}
-
-func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
+func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
-	if cmd.version {
-		fmt.Fprint(os.Stdout, version+"\n")
-		return nil
-	}
+	mainLogger := logger.Named("main")
 
-	mainLogger := cmd.config.logger.Named("main")
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
 
-	listenHost, listenPort, err := net.SplitHostPort(cmd.addr)
+	caCertFile, err := homedir.Expand("~/.hetty/hetty_cert.pem")
 	if err != nil {
-		mainLogger.Fatal("Failed to parse listening address.", zap.Error(err))
+		mainLogger.Fatal("Failed to expand CA certificate filepath.", zap.Error(err))
 	}
 
-	url := fmt.Sprintf("http://%v:%v", listenHost, listenPort)
-	if listenHost == "" || listenHost == "0.0.0.0" || listenHost == "127.0.0.1" || listenHost == "::1" {
-		url = fmt.Sprintf("http://localhost:%v", listenPort)
-	}
-
-	// Expand `~` in filepaths.
-	caCertFile, err := homedir.Expand(cmd.cert)
+	caKeyFile, err := homedir.Expand("~/.hetty/hetty_key.pem")
 	if err != nil {
-		cmd.config.logger.Fatal("Failed to parse CA certificate filepath.", zap.Error(err))
+		mainLogger.Fatal("Failed to expand CA private key filepath.", zap.Error(err))
 	}
 
-	caKeyFile, err := homedir.Expand(cmd.key)
+	dbFilePath, err := homedir.Expand("~/.hetty/hetty.db")
 	if err != nil {
-		cmd.config.logger.Fatal("Failed to parse CA private key filepath.", zap.Error(err))
+		mainLogger.Fatal("Failed to expand database path.", zap.Error(err))
 	}
 
-	dbPath, err := homedir.Expand(cmd.db)
-	if err != nil {
-		cmd.config.logger.Fatal("Failed to parse database path.", zap.Error(err))
-	}
-
-	// Load existing CA certificate and key from disk, or generate and write
-	// to disk if no files exist yet.
 	caCert, caKey, err := proxy.LoadOrCreateCA(caKeyFile, caCertFile)
 	if err != nil {
-		cmd.config.logger.Fatal("Failed to load or create CA key pair.", zap.Error(err))
+		mainLogger.Fatal("Failed to load or create CA key pair.", zap.Error(err))
 	}
 
-	dbLogger := cmd.config.logger.Named("boltdb").Sugar()
+	dbLogger := logger.Named("boltdb").Sugar()
 	boltOpts := *bbolt.DefaultOptions
 	boltOpts.Logger = &bolt.Logger{SugaredLogger: dbLogger}
 
-	boltDB, err := bolt.OpenDatabase(dbPath, &boltOpts)
+	boltDB, err := bolt.OpenDatabase(dbFilePath, &boltOpts)
 	if err != nil {
-		cmd.config.logger.Fatal("Failed to open database.", zap.Error(err))
+		mainLogger.Fatal("Failed to open database.", zap.Error(err))
 	}
 	defer boltDB.Close()
 
@@ -164,12 +84,12 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 	reqLogService := reqlog.NewService(reqlog.Config{
 		Scope:       scope,
 		Repository:  boltDB,
-		Logger:      cmd.config.logger.Named("reqlog").Sugar(),
+		Logger:      logger.Named("reqlog").Sugar(),
 		Broadcaster: broadcaster,
 	})
 
 	interceptService := intercept.NewService(intercept.Config{
-		Logger:      cmd.config.logger.Named("intercept").Sugar(),
+		Logger:      logger.Named("intercept").Sugar(),
 		Broadcaster: broadcaster,
 	})
 
@@ -186,26 +106,26 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 		Scope:            scope,
 	})
 	if err != nil {
-		cmd.config.logger.Fatal("Failed to create new projects service.", zap.Error(err))
+		mainLogger.Fatal("Failed to create new projects service.", zap.Error(err))
 	}
 
-	proxy, err := proxy.NewProxy(proxy.Config{
+	p, err := proxy.NewProxy(proxy.Config{
 		CACert: caCert,
 		CAKey:  caKey,
-		Logger: cmd.config.logger.Named("proxy").Sugar(),
+		Logger: logger.Named("proxy").Sugar(),
 	})
 	if err != nil {
-		cmd.config.logger.Fatal("Failed to create new proxy.", zap.Error(err))
+		mainLogger.Fatal("Failed to create new proxy.", zap.Error(err))
 	}
 
-	proxy.UseRequestModifier(reqLogService.RequestModifier)
-	proxy.UseResponseModifier(reqLogService.ResponseModifier)
-	proxy.UseRequestModifier(interceptService.RequestModifier)
-	proxy.UseResponseModifier(interceptService.ResponseModifier)
+	p.UseRequestModifier(reqLogService.RequestModifier)
+	p.UseResponseModifier(reqLogService.ResponseModifier)
+	p.UseRequestModifier(interceptService.RequestModifier)
+	p.UseResponseModifier(interceptService.ResponseModifier)
 
 	fsSub, err := fs.Sub(adminContent, "admin")
 	if err != nil {
-		cmd.config.logger.Fatal("Failed to construct file system subtree from admin dir.", zap.Error(err))
+		mainLogger.Fatal("Failed to construct file system subtree from admin dir.", zap.Error(err))
 	}
 
 	adminHandler := http.FileServer(http.FS(fsSub))
@@ -214,16 +134,10 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 		hostname, _ := os.Hostname()
 		host, _, _ := net.SplitHostPort(req.Host)
 
-		// Serve local admin routes when either:
-		// - The `Host` is well-known, e.g. `hetty.proxy`, `localhost:[port]`
-		//   or the listen addr `[host]:[port]`.
-		// - The request is not for TLS proxying (e.g. no `CONNECT`) and not
-		//   for proxying an external URL. E.g. Request-Line (RFC 7230, Section 3.1.1)
-		//   has no scheme.
 		return strings.EqualFold(host, hostname) ||
 			req.Host == "hetty.proxy" ||
-			req.Host == fmt.Sprintf("%v:%v", "localhost", listenPort) ||
-			req.Host == fmt.Sprintf("%v:%v", listenHost, listenPort) ||
+			req.Host == fmt.Sprintf("localhost:%d", cfg.Port) ||
+			req.Host == fmt.Sprintf("127.0.0.1:%d", cfg.Port) ||
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
 	}).Subrouter().StrictSlash(true)
 
@@ -239,21 +153,59 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 	// SSE event stream.
 	adminRouter.Path("/api/events").Handler(sse.Handler(broadcaster))
 
-	// Admin interface.
+	// CA certificate download endpoint (DER-encoded, importable by browsers).
+	adminRouter.Path("/api/ca.crt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-x509-ca-cert")
+		w.Header().Set("Content-Disposition", `attachment; filename="hetty_ca.crt"`)
+		w.Write(caCert.Raw)
+	})
+
+	// Settings REST endpoints.
+	adminRouter.Path("/api/settings").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(cfg)
+	})
+
+	adminRouter.Path("/api/settings").Methods(http.MethodPost).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var input config.Config
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if input.Port < 1 || input.Port > 65535 {
+			http.Error(w, "port must be between 1 and 65535", http.StatusBadRequest)
+			return
+		}
+
+		if err := config.Save(config.DefaultPath, input); err != nil {
+			mainLogger.Error("Failed to save config.", zap.Error(err))
+			http.Error(w, "failed to save config", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		enc.Encode(input)
+	})
+
 	adminRouter.PathPrefix("").Handler(adminHandler)
 
 	// Fallback (default) is the Proxy handler.
-	router.PathPrefix("").Handler(proxy)
+	router.PathPrefix("").Handler(p)
 
 	httpServer := &http.Server{
-		Addr:         cmd.addr,
+		Addr:         addr,
 		Handler:      router,
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){}, // Disable HTTP/2
-		ErrorLog:     zap.NewStdLog(cmd.config.logger.Named("http")),
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		ErrorLog:     zap.NewStdLog(logger.Named("http")),
 	}
 
 	go func() {
-		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, cmd.addr))
+		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, addr))
 		mainLogger.Info(fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(32), "Get started at "+url))
 
 		err := httpServer.ListenAndServe()
@@ -262,15 +214,11 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 		}
 	}()
 
-	// Wait for interrupt signal.
 	<-ctx.Done()
-	// Restore signal, allowing "force quit".
 	stop()
 
 	mainLogger.Info("Shutting down HTTP server. Press Ctrl+C to force quit.")
 
-	// Note: We expect httpServer.Handler to handle timeouts, thus, we don't
-	// need a context value with deadline here.
 	//nolint:contextcheck
 	err = httpServer.Shutdown(context.Background())
 	if err != nil {
