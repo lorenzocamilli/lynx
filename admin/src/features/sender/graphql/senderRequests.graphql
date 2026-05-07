@@ -1,5 +1,5 @@
-query GetSenderRequests {
-  senderRequests {
+query GetSenderRequests($limit: Int, $offset: Int) {
+  senderRequests(limit: $limit, offset: $offset) {
     id
     url
     method

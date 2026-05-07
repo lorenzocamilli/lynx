@@ -12,7 +12,7 @@ import (
 const DefaultPath = "~/.hetty/config.yaml"
 
 type Config struct {
-	Port int `yaml:"port"`
+	Port int `yaml:"port" json:"port"`
 }
 
 func Default() Config {

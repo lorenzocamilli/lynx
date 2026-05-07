@@ -194,13 +194,14 @@ type InterceptSettings {
 
 type Query {
   httpRequestLog(id: ID!): HttpRequestLog
-  httpRequestLogs: [HttpRequestLog!]!
+  httpRequestLogs(limit: Int, offset: Int): [HttpRequestLog!]!
+  httpRequestLogsCount: Int!
   httpRequestLogFilter: HttpRequestLogFilter
   activeProject: Project
   projects: [Project!]!
   scope: [ScopeRule!]!
   senderRequest(id: ID!): SenderRequest
-  senderRequests: [SenderRequest!]!
+  senderRequests(limit: Int, offset: Int): [SenderRequest!]!
   interceptedRequests: [HttpRequest!]!
   interceptedRequest(id: ID!): HttpRequest
 }

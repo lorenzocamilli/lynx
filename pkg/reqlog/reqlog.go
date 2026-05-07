@@ -17,6 +17,7 @@ import (
 	"github.com/dstotijn/hetty/pkg/log"
 	"github.com/dstotijn/hetty/pkg/proxy"
 	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/dstotijn/hetty/pkg/sse"
 )
 
 type contextKey int
@@ -59,12 +60,15 @@ type Service struct {
 	scope                    *scope.Scope
 	repo                     Repository
 	logger                   log.Logger
+	broadcaster              *sse.Broadcaster
 }
 
 type FindRequestsFilter struct {
 	ProjectID   ulid.ULID
 	OnlyInScope bool
 	SearchExpr  filter.Expression
+	Limit       int
+	Offset      int
 }
 
 type Config struct {
@@ -72,6 +76,7 @@ type Config struct {
 	Scope           *scope.Scope
 	Repository      Repository
 	Logger          log.Logger
+	Broadcaster     *sse.Broadcaster
 }
 
 func NewService(cfg Config) *Service {
@@ -80,6 +85,7 @@ func NewService(cfg Config) *Service {
 		repo:            cfg.Repository,
 		scope:           cfg.Scope,
 		logger:          cfg.Logger,
+		broadcaster:     cfg.Broadcaster,
 	}
 
 	if s.logger == nil {
@@ -89,12 +95,25 @@ func NewService(cfg Config) *Service {
 	return s
 }
 
-func (svc *Service) FindRequests(ctx context.Context) ([]RequestLog, error) {
-	return svc.repo.FindRequestLogs(ctx, svc.findReqsFilter, svc.scope)
+func (svc *Service) emit(t sse.EventType) {
+	if svc.broadcaster != nil {
+		svc.broadcaster.Broadcast(sse.Event{Type: t})
+	}
+}
+
+func (svc *Service) FindRequests(ctx context.Context, limit, offset int) ([]RequestLog, error) {
+	filter := svc.findReqsFilter
+	filter.Limit = limit
+	filter.Offset = offset
+	return svc.repo.FindRequestLogs(ctx, filter, svc.scope)
 }
 
 func (svc *Service) FindRequestLogByID(ctx context.Context, id ulid.ULID) (RequestLog, error) {
 	return svc.repo.FindRequestLogByID(ctx, svc.activeProjectID, id)
+}
+
+func (svc *Service) CountRequests(ctx context.Context) (int, error) {
+	return svc.repo.CountRequestLogs(ctx, svc.activeProjectID)
 }
 
 func (svc *Service) ClearRequests(ctx context.Context, projectID ulid.ULID) error {
@@ -189,6 +208,8 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 			"reqLogID", reqLog.ID.String(),
 			"url", reqLog.URL.String())
 
+		svc.emit(sse.EventRequestLog)
+
 		ctx := context.WithValue(req.Context(), ReqLogIDKey, reqLog.ID)
 		*req = *req.WithContext(ctx)
 	}
@@ -229,6 +250,7 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 			} else {
 				svc.logger.Debugw("Stored response log.",
 					"reqLogID", reqLogID.String())
+				svc.emit(sse.EventResponseLog)
 			}
 		}()
 

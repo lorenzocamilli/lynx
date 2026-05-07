@@ -1,15 +1,16 @@
-import { Box, MenuItem, Paper, Typography } from "@mui/material";
+import { Box, Button, MenuItem, Paper, Typography } from "@mui/material";
 import { useRouter } from "next/router";
 import { useState } from "react";
+
+const PAGE_SIZE = 50;
 
 import RequestsTable from "lib/components/RequestsTable";
 import useContextMenu from "lib/components/useContextMenu";
 import { useDeleteSenderRequestMutation, useGetSenderRequestsQuery } from "lib/graphql/generated";
 
 function History(): JSX.Element {
-  const { data, loading, refetch } = useGetSenderRequestsQuery({
-    pollInterval: 1000,
-  });
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const { data, loading, refetch } = useGetSenderRequestsQuery({ variables: { limit } });
 
   const router = useRouter();
   const activeId = router.query.id as string | undefined;
@@ -42,12 +43,21 @@ function History(): JSX.Element {
         <MenuItem onClick={handleDeleteClick}>Delete request</MenuItem>
       </Menu>
       {!loading && data?.senderRequests && data?.senderRequests.length > 0 && (
-        <RequestsTable
-          requests={data.senderRequests}
-          onRowClick={handleRowClick}
-          onContextMenu={handleRowContextMenu}
-          activeRowId={activeId}
-        />
+        <>
+          <RequestsTable
+            requests={data.senderRequests}
+            onRowClick={handleRowClick}
+            onContextMenu={handleRowContextMenu}
+            activeRowId={activeId}
+          />
+          {data.senderRequests.length >= limit && (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+              <Button size="small" onClick={() => setLimit((l) => l + PAGE_SIZE)}>
+                Load more
+              </Button>
+            </Box>
+          )}
+        </>
       )}
       <Box sx={{ mt: 2, height: "100%" }}>
         {!loading && data?.senderRequests.length === 0 && (
