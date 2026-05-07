@@ -2,34 +2,28 @@ package main
 
 import (
 	"context"
-	"errors"
-	"flag"
 	llog "log"
-	"os"
 
 	"go.uber.org/zap"
 
+	"github.com/dstotijn/hetty/pkg/config"
 	"github.com/dstotijn/hetty/pkg/log"
 )
 
 func main() {
-	hettyCmd, cfg := NewHettyCommand()
-
-	if err := hettyCmd.Parse(os.Args[1:]); err != nil {
-		llog.Fatalf("Failed to parse command line arguments: %v", err)
+	cfg, err := config.Load(config.DefaultPath)
+	if err != nil {
+		llog.Fatalf("Failed to load config: %v", err)
 	}
 
-	logger, err := log.NewZapLogger(cfg.verbose, cfg.jsonLogs)
+	logger, err := log.NewZapLogger(false, false)
 	if err != nil {
 		llog.Fatal(err)
 	}
 	//nolint:errcheck
 	defer logger.Sync()
 
-	cfg.logger = logger
-
-	err = hettyCmd.Run(context.Background())
-	if err != nil && !errors.Is(err, flag.ErrHelp) {
+	if err := run(context.Background(), cfg, logger); err != nil {
 		logger.Fatal("Command failed.", zap.Error(err))
 	}
 }
