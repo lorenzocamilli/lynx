@@ -292,6 +292,7 @@ export type Query = {
   httpRequestLog?: Maybe<HttpRequestLog>;
   httpRequestLogFilter?: Maybe<HttpRequestLogFilter>;
   httpRequestLogs: Array<HttpRequestLog>;
+  httpRequestLogsCount: Scalars['Int'];
   interceptedRequest?: Maybe<HttpRequest>;
   interceptedRequests: Array<HttpRequest>;
   projects: Array<Project>;
@@ -306,6 +307,12 @@ export type QueryHttpRequestLogArgs = {
 };
 
 
+export type QueryHttpRequestLogsArgs = {
+  limit?: InputMaybe<Scalars['Int']>;
+  offset?: InputMaybe<Scalars['Int']>;
+};
+
+
 export type QueryInterceptedRequestArgs = {
   id: Scalars['ID'];
 };
@@ -313,6 +320,12 @@ export type QueryInterceptedRequestArgs = {
 
 export type QuerySenderRequestArgs = {
   id: Scalars['ID'];
+};
+
+
+export type QuerySenderRequestsArgs = {
+  limit?: InputMaybe<Scalars['Int']>;
+  offset?: InputMaybe<Scalars['Int']>;
 };
 
 export type ScopeHeader = {
@@ -474,10 +487,18 @@ export type HttpRequestLogFilterQueryVariables = Exact<{ [key: string]: never; }
 
 export type HttpRequestLogFilterQuery = { __typename?: 'Query', httpRequestLogFilter?: { __typename?: 'HttpRequestLogFilter', onlyInScope: boolean, searchExpression?: string | null } | null };
 
-export type HttpRequestLogsQueryVariables = Exact<{ [key: string]: never; }>;
+export type HttpRequestLogsQueryVariables = Exact<{
+  limit?: InputMaybe<Scalars['Int']>;
+  offset?: InputMaybe<Scalars['Int']>;
+}>;
 
 
 export type HttpRequestLogsQuery = { __typename?: 'Query', httpRequestLogs: Array<{ __typename?: 'HttpRequestLog', id: string, method: HttpMethod, url: string, timestamp: any, response?: { __typename?: 'HttpResponseLog', statusCode: number, statusReason: string } | null }> };
+
+export type HttpRequestLogsCountQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type HttpRequestLogsCountQuery = { __typename?: 'Query', httpRequestLogsCount: number };
 
 export type SetHttpRequestLogFilterMutationVariables = Exact<{
   filter?: InputMaybe<HttpRequestLogFilterInput>;
@@ -533,7 +554,10 @@ export type GetSenderRequestQueryVariables = Exact<{
 
 export type GetSenderRequestQuery = { __typename?: 'Query', senderRequest?: { __typename?: 'SenderRequest', id: string, sourceRequestLogID?: string | null, url: any, method: HttpMethod, proto: HttpProtocol, body?: string | null, timestamp: any, headers?: Array<{ __typename?: 'HttpHeader', key: string, value: string }> | null, response?: { __typename?: 'HttpResponseLog', id: string, proto: HttpProtocol, statusCode: number, statusReason: string, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }> } | null } | null };
 
-export type GetSenderRequestsQueryVariables = Exact<{ [key: string]: never; }>;
+export type GetSenderRequestsQueryVariables = Exact<{
+  limit?: InputMaybe<Scalars['Int']>;
+  offset?: InputMaybe<Scalars['Int']>;
+}>;
 
 
 export type GetSenderRequestsQuery = { __typename?: 'Query', senderRequests: Array<{ __typename?: 'SenderRequest', id: string, url: any, method: HttpMethod, response?: { __typename?: 'HttpResponseLog', id: string, statusCode: number, statusReason: string } | null }> };
@@ -1106,8 +1130,8 @@ export type HttpRequestLogFilterQueryHookResult = ReturnType<typeof useHttpReque
 export type HttpRequestLogFilterLazyQueryHookResult = ReturnType<typeof useHttpRequestLogFilterLazyQuery>;
 export type HttpRequestLogFilterQueryResult = Apollo.QueryResult<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>;
 export const HttpRequestLogsDocument = gql`
-    query HttpRequestLogs {
-  httpRequestLogs {
+    query HttpRequestLogs($limit: Int, $offset: Int) {
+  httpRequestLogs(limit: $limit, offset: $offset) {
     id
     method
     url
@@ -1132,6 +1156,8 @@ export const HttpRequestLogsDocument = gql`
  * @example
  * const { data, loading, error } = useHttpRequestLogsQuery({
  *   variables: {
+ *      limit: // value for 'limit'
+ *      offset: // value for 'offset'
  *   },
  * });
  */
@@ -1146,6 +1172,38 @@ export function useHttpRequestLogsLazyQuery(baseOptions?: Apollo.LazyQueryHookOp
 export type HttpRequestLogsQueryHookResult = ReturnType<typeof useHttpRequestLogsQuery>;
 export type HttpRequestLogsLazyQueryHookResult = ReturnType<typeof useHttpRequestLogsLazyQuery>;
 export type HttpRequestLogsQueryResult = Apollo.QueryResult<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>;
+export const HttpRequestLogsCountDocument = gql`
+    query HttpRequestLogsCount {
+  httpRequestLogsCount
+}
+    `;
+
+/**
+ * __useHttpRequestLogsCountQuery__
+ *
+ * To run a query within a React component, call `useHttpRequestLogsCountQuery` and pass it any options that fit your needs.
+ * When your component renders, `useHttpRequestLogsCountQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useHttpRequestLogsCountQuery({
+ *   variables: {
+ *   },
+ * });
+ */
+export function useHttpRequestLogsCountQuery(baseOptions?: Apollo.QueryHookOptions<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return Apollo.useQuery<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>(HttpRequestLogsCountDocument, options);
+      }
+export function useHttpRequestLogsCountLazyQuery(baseOptions?: Apollo.LazyQueryHookOptions<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return Apollo.useLazyQuery<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>(HttpRequestLogsCountDocument, options);
+        }
+export type HttpRequestLogsCountQueryHookResult = ReturnType<typeof useHttpRequestLogsCountQuery>;
+export type HttpRequestLogsCountLazyQueryHookResult = ReturnType<typeof useHttpRequestLogsCountLazyQuery>;
+export type HttpRequestLogsCountQueryResult = Apollo.QueryResult<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>;
 export const SetHttpRequestLogFilterDocument = gql`
     mutation SetHttpRequestLogFilter($filter: HttpRequestLogFilterInput) {
   setHttpRequestLogFilter(filter: $filter) {
@@ -1436,8 +1494,8 @@ export type GetSenderRequestQueryHookResult = ReturnType<typeof useGetSenderRequ
 export type GetSenderRequestLazyQueryHookResult = ReturnType<typeof useGetSenderRequestLazyQuery>;
 export type GetSenderRequestQueryResult = Apollo.QueryResult<GetSenderRequestQuery, GetSenderRequestQueryVariables>;
 export const GetSenderRequestsDocument = gql`
-    query GetSenderRequests {
-  senderRequests {
+    query GetSenderRequests($limit: Int, $offset: Int) {
+  senderRequests(limit: $limit, offset: $offset) {
     id
     url
     method
@@ -1462,6 +1520,8 @@ export const GetSenderRequestsDocument = gql`
  * @example
  * const { data, loading, error } = useGetSenderRequestsQuery({
  *   variables: {
+ *      limit: // value for 'limit'
+ *      offset: // value for 'offset'
  *   },
  * });
  */

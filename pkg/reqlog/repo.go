@@ -11,6 +11,7 @@ import (
 type Repository interface {
 	FindRequestLogs(ctx context.Context, filter FindRequestsFilter, scope *scope.Scope) ([]RequestLog, error)
 	FindRequestLogByID(ctx context.Context, projectID, id ulid.ULID) (RequestLog, error)
+	CountRequestLogs(ctx context.Context, projectID ulid.ULID) (int, error)
 	StoreRequestLog(ctx context.Context, reqLog RequestLog) error
 	StoreResponseLog(ctx context.Context, projectID, reqLogID ulid.ULID, resLog ResponseLog) error
 	ClearRequestLogs(ctx context.Context, projectID ulid.ULID) error

@@ -1,3 +1,4 @@
+import React, { useCallback, useRef } from "react";
 import {
   TableContainer,
   Table,
@@ -73,10 +74,74 @@ interface Props {
   onRowClick?: (id: string) => void;
   onContextMenu?: (e: React.MouseEvent, id: string) => void;
   oldestFirst?: boolean;
+  rowNumberBase?: number;
 }
 
+interface RowProps {
+  id: string;
+  rowNumber: number;
+  method: HttpMethod;
+  url: string;
+  response?: HttpResponse | null;
+  isActive: boolean;
+  actionsCell?: (id: string) => JSX.Element;
+  onRowClick: (id: string) => void;
+  onContextMenu: (e: React.MouseEvent, id: string) => void;
+}
+
+const RequestRow = React.memo(function RequestRow({
+  id,
+  rowNumber,
+  method,
+  url,
+  response,
+  isActive,
+  actionsCell,
+  onRowClick,
+  onContextMenu,
+}: RowProps) {
+  const { origin, pathname, search, hash } = new URL(url);
+  return (
+    <RequestTableRow
+      hover
+      selected={isActive}
+      onClick={() => onRowClick(id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onContextMenu(e, id);
+      }}
+    >
+      <NumberTableCell>{rowNumber}</NumberTableCell>
+      <MethodTableCell>
+        <code>{method}</code>
+      </MethodTableCell>
+      <OriginTableCell>{origin}</OriginTableCell>
+      <PathTableCell>{decodeURIComponent(pathname + search + hash)}</PathTableCell>
+      <StatusTableCell>
+        {response && <Status code={response.statusCode} reason={response.statusReason} />}
+      </StatusTableCell>
+      {actionsCell && actionsCell(id)}
+    </RequestTableRow>
+  );
+});
+
 export default function RequestsTable(props: Props): JSX.Element {
-  const { requests, activeRowId, actionsCell, onRowClick, onContextMenu, oldestFirst } = props;
+  const { requests, activeRowId, actionsCell, onRowClick, onContextMenu, oldestFirst, rowNumberBase } = props;
+
+  // Store latest callbacks in refs so memoized rows always call the current version
+  // without needing to re-render just because the parent passed a new function reference.
+  const onRowClickRef = useRef(onRowClick);
+  onRowClickRef.current = onRowClick;
+  const onContextMenuRef = useRef(onContextMenu);
+  onContextMenuRef.current = onContextMenu;
+  const actionsCellRef = useRef(actionsCell);
+  actionsCellRef.current = actionsCell;
+
+  const stableRowClick = useCallback((id: string) => onRowClickRef.current?.(id), []);
+  const stableContextMenu = useCallback((e: React.MouseEvent, id: string) => onContextMenuRef.current?.(e, id), []);
+  const stableActionsCell = useCallback((id: string) => actionsCellRef.current?.(id) as JSX.Element, []);
+
+  const rows = oldestFirst ? [...requests].reverse() : requests;
 
   return (
     <TableContainer sx={{ overflowX: "initial" }}>
@@ -92,34 +157,22 @@ export default function RequestsTable(props: Props): JSX.Element {
           </TableRow>
         </TableHead>
         <TableBody>
-          {(oldestFirst ? [...requests].reverse() : requests).map(({ id, method, url, response }, index) => {
-            const { origin, pathname, search, hash } = new URL(url);
-            const rowNumber = oldestFirst ? index + 1 : requests.length - index;
-
+          {rows.map(({ id, method, url, response }, index) => {
+            const base = rowNumberBase || rows.length;
+            const rowNumber = oldestFirst ? index + 1 : base - index;
             return (
-              <RequestTableRow
+              <RequestRow
                 key={id}
-                hover
-                selected={id === activeRowId}
-                onClick={() => {
-                  onRowClick && onRowClick(id);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  onContextMenu && onContextMenu(e, id);
-                }}
-              >
-                <NumberTableCell>{rowNumber}</NumberTableCell>
-                <MethodTableCell>
-                  <code>{method}</code>
-                </MethodTableCell>
-                <OriginTableCell>{origin}</OriginTableCell>
-                <PathTableCell>{decodeURIComponent(pathname + search + hash)}</PathTableCell>
-                <StatusTableCell>
-                  {response && <Status code={response.statusCode} reason={response.statusReason} />}
-                </StatusTableCell>
-                {actionsCell && actionsCell(id)}
-              </RequestTableRow>
+                id={id}
+                rowNumber={rowNumber}
+                method={method}
+                url={url}
+                response={response}
+                isActive={id === activeRowId}
+                actionsCell={actionsCell !== undefined ? stableActionsCell : undefined}
+                onRowClick={stableRowClick}
+                onContextMenu={stableContextMenu}
+              />
             );
           })}
         </TableBody>
