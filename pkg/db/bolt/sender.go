@@ -106,45 +106,43 @@ func (db *Database) FindSenderRequests(ctx context.Context, filter sender.FindRe
 		return nil, fmt.Errorf("failed to get sender requests bucket: %w", err)
 	}
 
-	err = b.ForEach(func(senderReqID, rawSenderReq []byte) error {
+	c := b.Cursor()
+	skipped := 0
+
+	for k, v := c.Last(); k != nil; k, v = c.Prev() {
 		var req sender.Request
-		err = gob.NewDecoder(bytes.NewReader(rawSenderReq)).Decode(&req)
-		if err != nil {
-			return fmt.Errorf("failed to decode sender request: %w", err)
+		if err = gob.NewDecoder(bytes.NewReader(v)).Decode(&req); err != nil {
+			return nil, fmt.Errorf("bolt: failed to decode sender request: %w", err)
 		}
 
-		if filter.OnlyInScope {
-			if !req.MatchScope(scope) {
-				return nil
-			}
+		if filter.OnlyInScope && !req.MatchScope(scope) {
+			continue
 		}
 
-		// Filter by search expression. TODO: Once pagination is introduced,
-		// this filter logic should be done as items are retrieved.
 		if filter.SearchExpr != nil {
 			match, err := req.Matches(filter.SearchExpr)
 			if err != nil {
-				return fmt.Errorf(
+				return nil, fmt.Errorf(
 					"bolt: failed to match search expression for sender request (id: %v): %w",
-					senderReqID, err,
+					k, err,
 				)
 			}
 
 			if !match {
-				return nil
+				continue
 			}
 		}
 
-		reqs = append(reqs, req)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("bolt: failed to commit transaction: %w", err)
-	}
+		if skipped < filter.Offset {
+			skipped++
+			continue
+		}
 
-	// Reverse items, so newest requests appear first.
-	for i, j := 0, len(reqs)-1; i < j; i, j = i+1, j-1 {
-		reqs[i], reqs[j] = reqs[j], reqs[i]
+		reqs = append(reqs, req)
+
+		if filter.Limit > 0 && len(reqs) >= filter.Limit {
+			break
+		}
 	}
 
 	return reqs, nil

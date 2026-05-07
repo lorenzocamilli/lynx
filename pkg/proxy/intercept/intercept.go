@@ -13,6 +13,7 @@ import (
 	"github.com/dstotijn/hetty/pkg/filter"
 	"github.com/dstotijn/hetty/pkg/log"
 	"github.com/dstotijn/hetty/pkg/proxy"
+	"github.com/dstotijn/hetty/pkg/sse"
 )
 
 var (
@@ -52,7 +53,8 @@ type Service struct {
 	resMu     *sync.RWMutex
 	requests  map[ulid.ULID]Request
 	responses map[ulid.ULID]Response
-	logger    log.Logger
+	logger      log.Logger
+	broadcaster *sse.Broadcaster
 
 	requestsEnabled  bool
 	responsesEnabled bool
@@ -62,6 +64,7 @@ type Service struct {
 
 type Config struct {
 	Logger           log.Logger
+	Broadcaster      *sse.Broadcaster
 	RequestsEnabled  bool
 	ResponsesEnabled bool
 	RequestFilter    filter.Expression
@@ -78,6 +81,7 @@ func NewService(cfg Config) *Service {
 		requests:         make(map[ulid.ULID]Request),
 		responses:        make(map[ulid.ULID]Response),
 		logger:           cfg.Logger,
+		broadcaster:      cfg.Broadcaster,
 		requestsEnabled:  cfg.RequestsEnabled,
 		responsesEnabled: cfg.ResponsesEnabled,
 		reqFilter:        cfg.RequestFilter,
@@ -89,6 +93,12 @@ func NewService(cfg Config) *Service {
 	}
 
 	return s
+}
+
+func (svc *Service) emit(t sse.EventType) {
+	if svc.broadcaster != nil {
+		svc.broadcaster.Broadcast(sse.Event{Type: t})
+	}
 }
 
 // RequestModifier is a proxy.RequestModifyMiddleware for intercepting HTTP requests.
@@ -159,14 +169,16 @@ func (svc *Service) InterceptRequest(ctx context.Context, req *http.Request) (*h
 		done: done,
 	}
 	svc.reqMu.Unlock()
+	svc.emit(sse.EventIntercepted)
 
 	// Whatever happens next (modified request returned, or a context cancelled error), any blocked channel senders
 	// should be unblocked, and the request should be removed from the requests queue.
 	defer func() {
 		close(done)
 		svc.reqMu.Lock()
-		defer svc.reqMu.Unlock()
 		delete(svc.requests, reqID)
+		svc.reqMu.Unlock()
+		svc.emit(sse.EventIntercepted)
 	}()
 
 	select {
@@ -403,14 +415,16 @@ func (svc *Service) InterceptResponse(ctx context.Context, res *http.Response) (
 		done: done,
 	}
 	svc.resMu.Unlock()
+	svc.emit(sse.EventIntercepted)
 
 	// Whatever happens next (modified response returned, or a context cancelled error), any blocked channel senders
 	// should be unblocked, and the response should be removed from the responses queue.
 	defer func() {
 		close(done)
 		svc.resMu.Lock()
-		defer svc.resMu.Unlock()
 		delete(svc.responses, reqID)
+		svc.resMu.Unlock()
+		svc.emit(sse.EventIntercepted)
 	}()
 
 	select {

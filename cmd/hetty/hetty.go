@@ -27,6 +27,7 @@ import (
 	"github.com/dstotijn/hetty/pkg/reqlog"
 	"github.com/dstotijn/hetty/pkg/scope"
 	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/dstotijn/hetty/pkg/sse"
 )
 
 var version = "0.0.0"
@@ -78,14 +79,18 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 
 	scope := &scope.Scope{}
 
+	broadcaster := sse.NewBroadcaster()
+
 	reqLogService := reqlog.NewService(reqlog.Config{
-		Scope:      scope,
-		Repository: boltDB,
-		Logger:     logger.Named("reqlog").Sugar(),
+		Scope:       scope,
+		Repository:  boltDB,
+		Logger:      logger.Named("reqlog").Sugar(),
+		Broadcaster: broadcaster,
 	})
 
 	interceptService := intercept.NewService(intercept.Config{
-		Logger: logger.Named("intercept").Sugar(),
+		Logger:      logger.Named("intercept").Sugar(),
+		Broadcaster: broadcaster,
 	})
 
 	senderService := sender.NewService(sender.Config{
@@ -144,6 +149,9 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 		InterceptService:  interceptService,
 		SenderService:     senderService,
 	}, gqlEndpoint))
+
+	// SSE event stream.
+	adminRouter.Path("/api/events").Handler(sse.Handler(broadcaster))
 
 	// CA certificate download endpoint (DER-encoded, importable by browsers).
 	adminRouter.Path("/api/ca.crt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
