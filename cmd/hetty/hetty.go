@@ -4,18 +4,15 @@ import (
 	"context"
 	"crypto/tls"
 	"embed"
-	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strings"
 
-	"github.com/chromedp/chromedp"
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/go-homedir"
 	"github.com/peterbourgon/ff/v3/ffcli"
@@ -23,7 +20,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/dstotijn/hetty/pkg/api"
-	"github.com/dstotijn/hetty/pkg/chrome"
 	"github.com/dstotijn/hetty/pkg/db/bolt"
 	"github.com/dstotijn/hetty/pkg/proj"
 	"github.com/dstotijn/hetty/pkg/proxy"
@@ -31,6 +27,7 @@ import (
 	"github.com/dstotijn/hetty/pkg/reqlog"
 	"github.com/dstotijn/hetty/pkg/scope"
 	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/dstotijn/hetty/pkg/sse"
 )
 
 var version = "0.0.0"
@@ -52,7 +49,6 @@ Options:
     --key          Path to root CA private key. Creates file if it doesn't exist. (Default: "~/.hetty/hetty_key.pem")
     --db           Database file path. Creates file if it doesn't exist. (Default: "~/.hetty/hetty.db")
     --addr         TCP address for HTTP server to listen on, in the form \"host:port\". (Default: ":8080")
-    --chrome       Launch Chrome with proxy settings applied and certificate errors ignored. (Default: false)
     --verbose      Enable verbose logging.
     --json         Encode logs as JSON, instead of pretty/human readable output.
     --version, -v  Output version.
@@ -73,7 +69,6 @@ type HettyCommand struct {
 	key     string
 	db      string
 	addr    string
-	chrome  bool
 	version bool
 }
 
@@ -90,7 +85,6 @@ func NewHettyCommand() (*ffcli.Command, *Config) {
 		"Path to root CA private key. Creates a new private key if file doesn't exist.")
 	fs.StringVar(&cmd.db, "db", "~/.hetty/hetty.db", "Database file path. Creates file if it doesn't exist.")
 	fs.StringVar(&cmd.addr, "addr", ":8080", "TCP address to listen on, in the form \"host:port\".")
-	fs.BoolVar(&cmd.chrome, "chrome", false, "Launch Chrome with proxy settings applied and certificate errors ignored.")
 	fs.BoolVar(&cmd.version, "version", false, "Output version.")
 	fs.BoolVar(&cmd.version, "v", false, "Output version.")
 
@@ -165,14 +159,18 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 
 	scope := &scope.Scope{}
 
+	broadcaster := sse.NewBroadcaster()
+
 	reqLogService := reqlog.NewService(reqlog.Config{
-		Scope:      scope,
-		Repository: boltDB,
-		Logger:     cmd.config.logger.Named("reqlog").Sugar(),
+		Scope:       scope,
+		Repository:  boltDB,
+		Logger:      cmd.config.logger.Named("reqlog").Sugar(),
+		Broadcaster: broadcaster,
 	})
 
 	interceptService := intercept.NewService(intercept.Config{
-		Logger: cmd.config.logger.Named("intercept").Sugar(),
+		Logger:      cmd.config.logger.Named("intercept").Sugar(),
+		Broadcaster: broadcaster,
 	})
 
 	senderService := sender.NewService(sender.Config{
@@ -238,6 +236,9 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 		SenderService:     senderService,
 	}, gqlEndpoint))
 
+	// SSE event stream.
+	adminRouter.Path("/api/events").Handler(sse.Handler(broadcaster))
+
 	// Admin interface.
 	adminRouter.PathPrefix("").Handler(adminHandler)
 
@@ -260,28 +261,6 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 			mainLogger.Fatal("HTTP server closed unexpected.", zap.Error(err))
 		}
 	}()
-
-	if cmd.chrome {
-		ctx, cancel := chrome.NewExecAllocator(ctx, chrome.Config{
-			ProxyServer:      url,
-			ProxyBypassHosts: []string{strings.TrimPrefix(url, "http://")},
-		})
-		defer cancel()
-
-		taskCtx, cancel := chromedp.NewContext(ctx)
-		defer cancel()
-
-		err = chromedp.Run(taskCtx, chromedp.Navigate(url))
-
-		switch {
-		case errors.Is(err, exec.ErrNotFound):
-			mainLogger.Info("Chrome executable not found.")
-		case err != nil:
-			mainLogger.Error(fmt.Sprintf("Failed to navigate to %v.", url), zap.Error(err))
-		default:
-			mainLogger.Info("Launched Chrome.")
-		}
-	}
 
 	// Wait for interrupt signal.
 	<-ctx.Done()
