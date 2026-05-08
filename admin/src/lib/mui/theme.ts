@@ -1,4 +1,3 @@
-import * as colors from "@mui/material/colors";
 import { createTheme } from "@mui/material/styles";
 
 declare module "@mui/material/Paper" {
@@ -8,23 +7,32 @@ declare module "@mui/material/Paper" {
 }
 
 const heading = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontWeight: 600,
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 700,
 };
 
 let theme = createTheme({
   palette: {
     mode: "dark",
     primary: {
-      main: colors.teal["A400"],
+      main: "#38BDF8",
     },
     secondary: {
-      main: colors.grey[900],
-      light: "#333",
-      dark: colors.common.black,
+      main: "#21262D",
+      light: "#30363D",
+      dark: "#010409",
+    },
+    text: {
+      primary: "#E6EDF3",
+      secondary: "#8B949E",
+    },
+    background: {
+      default: "#0D1117",
+      paper: "#161B22",
     },
   },
   typography: {
+    fontFamily: "'Inter', sans-serif",
     h2: heading,
     h3: heading,
     h4: heading,
@@ -35,10 +43,6 @@ let theme = createTheme({
 
 theme = createTheme(theme, {
   palette: {
-    background: {
-      default: theme.palette.secondary.main,
-      paper: theme.palette.secondary.light,
-    },
     info: {
       main: theme.palette.primary.main,
     },
@@ -51,7 +55,7 @@ theme = createTheme(theme, {
       styleOverrides: {
         root: {
           "&.Mui-selected, &.Mui-selected:hover": {
-            backgroundColor: theme.palette.grey[700],
+            backgroundColor: "#21262D",
           },
         },
       },

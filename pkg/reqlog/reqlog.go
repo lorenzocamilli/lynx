@@ -13,11 +13,11 @@ import (
 
 	"github.com/oklog/ulid"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/log"
-	"github.com/dstotijn/hetty/pkg/proxy"
-	"github.com/dstotijn/hetty/pkg/scope"
-	"github.com/dstotijn/hetty/pkg/sse"
+	"github.com/lorenzocamilli/lynx/pkg/filter"
+	"github.com/lorenzocamilli/lynx/pkg/log"
+	"github.com/lorenzocamilli/lynx/pkg/proxy"
+	"github.com/lorenzocamilli/lynx/pkg/scope"
+	"github.com/lorenzocamilli/lynx/pkg/sse"
 )
 
 type contextKey int
