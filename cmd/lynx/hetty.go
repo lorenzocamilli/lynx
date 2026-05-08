@@ -18,16 +18,16 @@ import (
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
-	"github.com/dstotijn/hetty/pkg/api"
-	"github.com/dstotijn/hetty/pkg/config"
-	"github.com/dstotijn/hetty/pkg/db/bolt"
-	"github.com/dstotijn/hetty/pkg/proj"
-	"github.com/dstotijn/hetty/pkg/proxy"
-	"github.com/dstotijn/hetty/pkg/proxy/intercept"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/scope"
-	"github.com/dstotijn/hetty/pkg/sender"
-	"github.com/dstotijn/hetty/pkg/sse"
+	"github.com/lorenzocamilli/lynx/pkg/api"
+	"github.com/lorenzocamilli/lynx/pkg/config"
+	"github.com/lorenzocamilli/lynx/pkg/db/bolt"
+	"github.com/lorenzocamilli/lynx/pkg/proj"
+	"github.com/lorenzocamilli/lynx/pkg/proxy"
+	"github.com/lorenzocamilli/lynx/pkg/proxy/intercept"
+	"github.com/lorenzocamilli/lynx/pkg/reqlog"
+	"github.com/lorenzocamilli/lynx/pkg/scope"
+	"github.com/lorenzocamilli/lynx/pkg/sender"
+	"github.com/lorenzocamilli/lynx/pkg/sse"
 )
 
 var version = "0.0.0"
@@ -47,17 +47,17 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
 
-	caCertFile, err := homedir.Expand("~/.hetty/hetty_cert.pem")
+	caCertFile, err := homedir.Expand("~/.lynx/lynx_cert.pem")
 	if err != nil {
 		mainLogger.Fatal("Failed to expand CA certificate filepath.", zap.Error(err))
 	}
 
-	caKeyFile, err := homedir.Expand("~/.hetty/hetty_key.pem")
+	caKeyFile, err := homedir.Expand("~/.lynx/lynx_key.pem")
 	if err != nil {
 		mainLogger.Fatal("Failed to expand CA private key filepath.", zap.Error(err))
 	}
 
-	dbFilePath, err := homedir.Expand("~/.hetty/hetty.db")
+	dbFilePath, err := homedir.Expand("~/.lynx/lynx.db")
 	if err != nil {
 		mainLogger.Fatal("Failed to expand database path.", zap.Error(err))
 	}
@@ -135,7 +135,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 		host, _, _ := net.SplitHostPort(req.Host)
 
 		return strings.EqualFold(host, hostname) ||
-			req.Host == "hetty.proxy" ||
+			req.Host == "lynx.proxy" ||
 			req.Host == fmt.Sprintf("localhost:%d", cfg.Port) ||
 			req.Host == fmt.Sprintf("127.0.0.1:%d", cfg.Port) ||
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
@@ -156,7 +156,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	// CA certificate download endpoint (DER-encoded, importable by browsers).
 	adminRouter.Path("/api/ca.crt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-x509-ca-cert")
-		w.Header().Set("Content-Disposition", `attachment; filename="hetty_ca.crt"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="lynx_ca.crt"`)
 		w.Write(caCert.Raw)
 	})
 
@@ -205,7 +205,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	}
 
 	go func() {
-		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, addr))
+		mainLogger.Info(fmt.Sprintf("Lynx (v%v) is running on %v ...", version, addr))
 		mainLogger.Info(fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(32), "Get started at "+url))
 
 		err := httpServer.ListenAndServe()

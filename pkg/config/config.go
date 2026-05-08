@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-const DefaultPath = "~/.hetty/config.yaml"
+const DefaultPath = "~/.lynx/config.yaml"
 
 type Config struct {
 	Port int `yaml:"port" json:"port"`

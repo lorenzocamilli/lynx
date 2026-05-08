@@ -1,4 +1,4 @@
-module github.com/dstotijn/hetty
+module github.com/lorenzocamilli/lynx
 
 go 1.23.0
 
