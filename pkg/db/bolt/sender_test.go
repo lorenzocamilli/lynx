@@ -12,10 +12,10 @@ import (
 	"github.com/oklog/ulid"
 	"go.etcd.io/bbolt"
 
-	"github.com/dstotijn/hetty/pkg/db/bolt"
-	"github.com/dstotijn/hetty/pkg/proj"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/lorenzocamilli/lynx/pkg/db/bolt"
+	"github.com/lorenzocamilli/lynx/pkg/proj"
+	"github.com/lorenzocamilli/lynx/pkg/reqlog"
+	"github.com/lorenzocamilli/lynx/pkg/sender"
 )
 
 var exampleURL = func() *url.URL {

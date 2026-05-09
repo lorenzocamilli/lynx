@@ -3,9 +3,9 @@ package sender_test
 import (
 	"testing"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/lorenzocamilli/lynx/pkg/filter"
+	"github.com/lorenzocamilli/lynx/pkg/reqlog"
+	"github.com/lorenzocamilli/lynx/pkg/sender"
 )
 
 func TestRequestLogMatch(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	bolt "go.etcd.io/bbolt"
 	bolterrors "go.etcd.io/bbolt/errors"
 
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/lorenzocamilli/lynx/pkg/reqlog"
+	"github.com/lorenzocamilli/lynx/pkg/scope"
 )
 
 var ErrRequestLogsBucketNotFound = errors.New("bolt: request logs bucket not found")

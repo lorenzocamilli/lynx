@@ -13,8 +13,8 @@ import (
 	"github.com/oklog/ulid"
 	"go.uber.org/zap"
 
-	"github.com/dstotijn/hetty/pkg/proxy"
-	"github.com/dstotijn/hetty/pkg/proxy/intercept"
+	"github.com/lorenzocamilli/lynx/pkg/proxy"
+	"github.com/lorenzocamilli/lynx/pkg/proxy/intercept"
 )
 
 //nolint:gosec

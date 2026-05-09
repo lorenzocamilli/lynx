@@ -161,7 +161,7 @@ export default function Settings(): JSX.Element {
         Settings
       </Typography>
       <Typography paragraph sx={{ mb: 4 }}>
-        Settings allow you to tweak the behaviour of Hetty&apos;s features.
+        Settings allow you to tweak the behaviour of Lynx&apos;s features.
       </Typography>
 
       <TabContext value={tabValue}>
@@ -195,10 +195,7 @@ export default function Settings(): JSX.Element {
                   />
                   <FormHelperText>
                     Filter expression to match incoming requests on. When set, only matching requests are intercepted.{" "}
-                    <MaterialLink
-                      href="https://hetty.xyz/docs/guides/intercept?utm_source=hettyapp#request-filter"
-                      target="_blank"
-                    >
+                    <MaterialLink href="https://github.com/lorenzocamilli/lynxpipe" target="_blank">
                       Read docs.
                     </MaterialLink>
                   </FormHelperText>
@@ -230,10 +227,7 @@ export default function Settings(): JSX.Element {
                   />
                   <FormHelperText>
                     Filter expression to match received responses on. When set, only matching responses are intercepted.{" "}
-                    <MaterialLink
-                      href="https://hetty.xyz/docs/guides/intercept/?utm_source=hettyapp#response-filter"
-                      target="_blank"
-                    >
+                    <MaterialLink href="https://github.com/lorenzocamilli/lynxpipe" target="_blank">
                       Read docs.
                     </MaterialLink>
                   </FormHelperText>
@@ -260,12 +254,12 @@ export default function Settings(): JSX.Element {
             Application settings
           </Typography>
           <Typography paragraph color="text.secondary" sx={{ mb: 3 }}>
-            Changes to these settings take effect after restarting Hetty.
+            Changes to these settings take effect after restarting Lynx.
           </Typography>
 
           {restartRequired && (
             <Alert severity="warning" sx={{ mb: 3 }} onClose={() => setRestartRequired(false)}>
-              Settings saved. Restart Hetty for the changes to take effect.
+              Settings saved. Restart Lynx for the changes to take effect.
             </Alert>
           )}
 

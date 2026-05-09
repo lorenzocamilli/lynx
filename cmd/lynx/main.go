@@ -6,8 +6,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/dstotijn/hetty/pkg/config"
-	"github.com/dstotijn/hetty/pkg/log"
+	"github.com/lorenzocamilli/lynx/pkg/config"
+	"github.com/lorenzocamilli/lynx/pkg/log"
 )
 
 func main() {

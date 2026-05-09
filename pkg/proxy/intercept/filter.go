@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/lorenzocamilli/lynx/pkg/filter"
+	"github.com/lorenzocamilli/lynx/pkg/scope"
 )
 
 //nolint:unparam
