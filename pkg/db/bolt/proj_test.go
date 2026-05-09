@@ -15,10 +15,10 @@ import (
 	"github.com/oklog/ulid"
 	"go.etcd.io/bbolt"
 
-	"github.com/dstotijn/hetty/pkg/db/bolt"
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/proj"
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/lorenzocamilli/lynx/pkg/db/bolt"
+	"github.com/lorenzocamilli/lynx/pkg/filter"
+	"github.com/lorenzocamilli/lynx/pkg/proj"
+	"github.com/lorenzocamilli/lynx/pkg/scope"
 )
 
 //nolint:gosec

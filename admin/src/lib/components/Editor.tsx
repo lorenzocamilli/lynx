@@ -18,18 +18,6 @@ function languageForContentType(contentType?: string): language | undefined {
   return undefined;
 }
 
-function formatContent(content: string, contentType?: string): string {
-  const lang = languageForContentType(contentType);
-  if (lang === "json") {
-    try {
-      return JSON.stringify(JSON.parse(content), null, 2);
-    } catch {
-      // fall through to raw content
-    }
-  }
-  return content;
-}
-
 interface Props {
   content: string;
   contentType?: string;

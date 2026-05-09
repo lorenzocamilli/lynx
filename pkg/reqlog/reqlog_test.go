@@ -14,11 +14,11 @@ import (
 	"github.com/oklog/ulid"
 	"go.etcd.io/bbolt"
 
-	"github.com/dstotijn/hetty/pkg/db/bolt"
-	"github.com/dstotijn/hetty/pkg/proj"
-	"github.com/dstotijn/hetty/pkg/proxy"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/lorenzocamilli/lynx/pkg/db/bolt"
+	"github.com/lorenzocamilli/lynx/pkg/proj"
+	"github.com/lorenzocamilli/lynx/pkg/proxy"
+	"github.com/lorenzocamilli/lynx/pkg/reqlog"
+	"github.com/lorenzocamilli/lynx/pkg/scope"
 )
 
 //nolint:gosec

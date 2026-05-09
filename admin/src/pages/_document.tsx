@@ -13,8 +13,9 @@ export default class MyDocument extends Document {
         <Head>
           <meta name="theme-color" content={theme.palette.primary.main} />
           <link rel="stylesheet" href="/style.css" />
-          <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" />
-          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" />
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" />
           {(this.props as any).emotionStyleTags}
         </Head>
         <body>
