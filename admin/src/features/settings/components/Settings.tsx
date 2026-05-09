@@ -195,7 +195,7 @@ export default function Settings(): JSX.Element {
                   />
                   <FormHelperText>
                     Filter expression to match incoming requests on. When set, only matching requests are intercepted.{" "}
-                    <MaterialLink href="https://github.com/lorenzocamilli/lynx" target="_blank">
+                    <MaterialLink href="https://github.com/lorenzocamilli/lynxpipe" target="_blank">
                       Read docs.
                     </MaterialLink>
                   </FormHelperText>
@@ -227,7 +227,7 @@ export default function Settings(): JSX.Element {
                   />
                   <FormHelperText>
                     Filter expression to match received responses on. When set, only matching responses are intercepted.{" "}
-                    <MaterialLink href="https://github.com/lorenzocamilli/lynx" target="_blank">
+                    <MaterialLink href="https://github.com/lorenzocamilli/lynxpipe" target="_blank">
                       Read docs.
                     </MaterialLink>
                   </FormHelperText>

@@ -117,6 +117,15 @@ const ListItemButton = styled(MuiListItemButton)<ListItemButtonProps>(({ theme }
     px: 1,
   },
   "&.MuiListItemButton-root": {
+    "&.Mui-disabled": {
+      opacity: 1,
+      "& .MuiListItemIcon-root": {
+        color: theme.palette.text.secondary,
+      },
+      "& .MuiListItemText-root": {
+        color: theme.palette.text.secondary,
+      },
+    },
     "&.Mui-selected": {
       backgroundColor: theme.palette.primary.main,
       "& .MuiListItemIcon-root": {
@@ -198,7 +207,7 @@ export function Layout({ title, page, children }: Props): JSX.Element {
           </IconButton>
         </DrawerHeader>
         <Divider />
-        <List sx={{ p: 0 }}>
+        <List sx={{ p: 0, "& a": { color: "inherit", textDecoration: "none" } }}>
           <Link href="/" passHref>
             <ListItemButton key="home" selected={page === Page.Home}>
               <Tooltip title="Home">
