@@ -32,8 +32,8 @@ function FeatureCard({ icon, title, description, href, label }: FeatureCardProps
         "&:hover": { borderColor: "primary.main" },
       }}
     >
-      <Box sx={{ color: "primary.main", display: "flex", alignItems: "center", gap: 1 }}>
-        {icon}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ color: "primary.main", display: "flex" }}>{icon}</Box>
         <Typography variant="h6" component="h3">
           {title}
         </Typography>

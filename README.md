@@ -1,4 +1,4 @@
-# Lynx Proxy
+# Lynx
 
 **Lynx** is an HTTP toolkit for security research. An open source alternative
 to commercial software like Burp Suite Pro, with powerful features tailored to
