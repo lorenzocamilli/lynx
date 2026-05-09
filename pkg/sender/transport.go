@@ -17,13 +17,18 @@ const (
 	HTTPProto20 = "HTTP/2.0"
 )
 
-// h1OnlyTransport mimics `http.DefaultTransport`, but with HTTP/2 disabled.
+var dialer = &net.Dialer{
+	Timeout:   30 * time.Second,
+	KeepAlive: 30 * time.Second,
+}
+
+// h1OnlyTransport sends HTTP/1.x requests directly, bypassing any system proxy.
 var h1OnlyTransport = &http.Transport{
-	Proxy: http.ProxyFromEnvironment,
-	DialContext: (&net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}).DialContext,
+	Proxy:       nil,
+	DialContext: dialer.DialContext,
+	TLSClientConfig: &tls.Config{
+		InsecureSkipVerify: true, //nolint:gosec
+	},
 	MaxIdleConns:          100,
 	IdleConnTimeout:       90 * time.Second,
 	TLSHandshakeTimeout:   10 * time.Second,
@@ -33,9 +38,23 @@ var h1OnlyTransport = &http.Transport{
 	TLSNextProto: map[string]func(string, *tls.Conn) http.RoundTripper{},
 }
 
-// RountTrip implements http.RoundTripper. Based on a context value on the
-// HTTP request, it switches between using `http.DefaultTransport` (which attempts
-// HTTP/2) and a HTTP/1.1 only transport that's based off `http.DefaultTransport`.
+// h2Transport sends HTTP/2 requests directly, bypassing any system proxy.
+var h2Transport = &http.Transport{
+	Proxy:       nil,
+	DialContext: dialer.DialContext,
+	TLSClientConfig: &tls.Config{
+		InsecureSkipVerify: true, //nolint:gosec
+	},
+	ForceAttemptHTTP2:     true,
+	MaxIdleConns:          100,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+}
+
+// RoundTrip implements http.RoundTripper. Based on a context value on the
+// HTTP request, it switches between an HTTP/1.1-only transport and an
+// HTTP/2-capable transport. Both bypass any system proxy settings.
 func (t *HTTPTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	proto, ok := req.Context().Value(protoCtxKey{}).(string)
 
@@ -43,7 +62,7 @@ func (t *HTTPTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return h1OnlyTransport.RoundTrip(req)
 	}
 
-	return http.DefaultTransport.RoundTrip(req)
+	return h2Transport.RoundTrip(req)
 }
 
 func isValidProto(proto string) bool {
