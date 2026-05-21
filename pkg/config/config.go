@@ -12,11 +12,13 @@ import (
 const DefaultPath = "~/.lynx/config.yaml"
 
 type Config struct {
-	Port int `yaml:"port" json:"port"`
+	Host string `yaml:"host" json:"host"`
+	Port int    `yaml:"port" json:"port"`
 }
 
 func Default() Config {
 	return Config{
+		Host: "127.0.0.1",
 		Port: 8080,
 	}
 }

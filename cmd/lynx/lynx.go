@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -11,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -38,14 +41,48 @@ var version = "0.0.0"
 //go:embed admin/_next/static/*/*.js
 var adminContent embed.FS
 
+func loadOrCreateToken(path string) (string, error) {
+	expanded, err := homedir.Expand(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to expand token path: %w", err)
+	}
+
+	data, err := os.ReadFile(expanded)
+	if err == nil {
+		return strings.TrimSpace(string(data)), nil
+	}
+	if !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to read token file: %w", err)
+	}
+
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+	token := hex.EncodeToString(buf)
+
+	if err := os.MkdirAll(filepath.Dir(expanded), 0o700); err != nil {
+		return "", fmt.Errorf("failed to create token directory: %w", err)
+	}
+	if err := os.WriteFile(expanded, []byte(token), 0o600); err != nil {
+		return "", fmt.Errorf("failed to write token file: %w", err)
+	}
+
+	return token, nil
+}
+
 func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
 	mainLogger := logger.Named("main")
 
-	addr := fmt.Sprintf(":%d", cfg.Port)
-	url := fmt.Sprintf("http://localhost:%d", cfg.Port)
+	host := cfg.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := fmt.Sprintf("%s:%d", host, cfg.Port)
+	url := fmt.Sprintf("http://%s:%d", host, cfg.Port)
 
 	caCertFile, err := homedir.Expand("~/.lynx/lynx_cert.pem")
 	if err != nil {
@@ -60,6 +97,11 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	dbFilePath, err := homedir.Expand("~/.lynx/lynx.db")
 	if err != nil {
 		mainLogger.Fatal("Failed to expand database path.", zap.Error(err))
+	}
+
+	adminToken, err := loadOrCreateToken("~/.lynx/token")
+	if err != nil {
+		mainLogger.Fatal("Failed to load or create admin token.", zap.Error(err))
 	}
 
 	caCert, caKey, err := proxy.LoadOrCreateCA(caKeyFile, caCertFile)
@@ -141,6 +183,59 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
 	}).Subrouter().StrictSlash(true)
 
+	// Auth middleware: require Bearer token on all /api/* routes except /api/token.
+	adminRouter.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/token" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				auth := r.Header.Get("Authorization")
+				if !strings.HasPrefix(auth, "Bearer ") || strings.TrimPrefix(auth, "Bearer ") != adminToken {
+					http.Error(w, "unauthorized", http.StatusUnauthorized)
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// CSRF: for state-changing requests, validate Origin matches the listen address if present.
+	adminRouter.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
+				origin := r.Header.Get("Origin")
+				if origin != "" {
+					allowed := []string{
+						fmt.Sprintf("http://%s", addr),
+						fmt.Sprintf("http://localhost:%d", cfg.Port),
+						fmt.Sprintf("http://127.0.0.1:%d", cfg.Port),
+					}
+					ok := false
+					for _, a := range allowed {
+						if origin == a {
+							ok = true
+							break
+						}
+					}
+					if !ok {
+						http.Error(w, "forbidden", http.StatusForbidden)
+						return
+					}
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// Bootstrap: return the admin token (no auth required; protected by localhost-only bind).
+	adminRouter.Path("/api/token").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		fmt.Fprint(w, adminToken)
+	})
+
 	// GraphQL server.
 	gqlEndpoint := "/api/graphql/"
 	adminRouter.Path(gqlEndpoint).Handler(api.HTTPHandler(&api.Resolver{
@@ -179,6 +274,9 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 			http.Error(w, "port must be between 1 and 65535", http.StatusBadRequest)
 			return
 		}
+		if input.Host == "" {
+			input.Host = "127.0.0.1"
+		}
 
 		if err := config.Save(config.DefaultPath, input); err != nil {
 			mainLogger.Error("Failed to save config.", zap.Error(err))
@@ -207,6 +305,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	go func() {
 		mainLogger.Info(fmt.Sprintf("Lynx (v%v) is running on %v ...", version, addr))
 		mainLogger.Info(fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(32), "Get started at "+url))
+		mainLogger.Info(fmt.Sprintf("Admin token: %s", adminToken))
 
 		err := httpServer.ListenAndServe()
 		if err != http.ErrServerClosed {

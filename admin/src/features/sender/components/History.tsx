@@ -40,9 +40,7 @@ function History(): JSX.Element {
     const { data } = await getFullRequest({ variables: { id: contextId } });
     const req = data?.senderRequest;
     if (!req) return;
-    await navigator.clipboard.writeText(
-      curlFromRequest(req.method, req.url, req.headers ?? [], req.body)
-    );
+    await navigator.clipboard.writeText(curlFromRequest(req.method, req.url, req.headers ?? [], req.body));
     setCurlCopiedOpen(true);
   };
 
