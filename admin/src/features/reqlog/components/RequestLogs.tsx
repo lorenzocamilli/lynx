@@ -9,9 +9,11 @@ import Search from "./Search";
 import RequestsTable from "lib/components/RequestsTable";
 import SplitPane from "lib/components/SplitPane";
 import useContextMenu from "lib/components/useContextMenu";
+import { curlFromRequest } from "lib/curlFromRequest";
 import {
   useCreateSenderRequestFromHttpRequestLogMutation,
   useDeleteHttpRequestLogMutation,
+  useHttpRequestLogLazyQuery,
   useHttpRequestLogsCountQuery,
   useHttpRequestLogsQuery,
 } from "lib/graphql/generated";
@@ -53,10 +55,21 @@ export function RequestLogs(): JSX.Element {
 
   const [copyToSenderId, setCopyToSenderId] = useState("");
   const [Menu, handleContextMenu, handleContextMenuClose] = useContextMenu();
+  const [getFullLog] = useHttpRequestLogLazyQuery();
 
   const handleCopyToSenderClick = () => {
     createSenderReqFromLog({ variables: { id: copyToSenderId } });
     handleContextMenuClose();
+  };
+
+  const [curlCopiedOpen, setCurlCopiedOpen] = useState(false);
+  const handleCopyAsCurlClick = async () => {
+    handleContextMenuClose();
+    const { data } = await getFullLog({ variables: { id: copyToSenderId } });
+    const log = data?.httpRequestLog;
+    if (!log) return;
+    await navigator.clipboard.writeText(curlFromRequest(log.method, log.url, log.headers, log.body));
+    setCurlCopiedOpen(true);
   };
 
   const handleDeleteClick = async () => {
@@ -100,6 +113,7 @@ export function RequestLogs(): JSX.Element {
           <Box sx={{ width: "100%", height: "100%", pb: 2 }}>
             <Box sx={{ width: "100%", height: "100%", overflow: "scroll" }}>
               <Menu>
+                <MenuItem onClick={handleCopyAsCurlClick}>Copy as cURL</MenuItem>
                 <MenuItem onClick={handleCopyToSenderClick}>Copy request to Sender</MenuItem>
                 <MenuItem onClick={handleDeleteClick}>Delete request</MenuItem>
               </Menu>
@@ -111,6 +125,16 @@ export function RequestLogs(): JSX.Element {
               >
                 <Alert onClose={handleCloseCopiedNotif} severity="info">
                   Request was copied. <Link href={`/sender?id=${newSenderReqId}`}>Edit in Sender.</Link>
+                </Alert>
+              </Snackbar>
+              <Snackbar
+                open={curlCopiedOpen}
+                autoHideDuration={3000}
+                onClose={() => setCurlCopiedOpen(false)}
+                anchorOrigin={{ horizontal: "center", vertical: "bottom" }}
+              >
+                <Alert onClose={() => setCurlCopiedOpen(false)} severity="success">
+                  cURL command copied to clipboard.
                 </Alert>
               </Snackbar>
               <RequestsTable

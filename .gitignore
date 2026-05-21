@@ -1,6 +1,7 @@
 *.vscode
 /dist
-/hetty
-/cmd/hetty/admin
+/lynx
+/gqlgen
+/cmd/lynx/admin
 *.pem
 *.test
