@@ -229,7 +229,9 @@ function EditRequest(): JSX.Element {
               multiline
               fullWidth
               minRows={4}
-              placeholder={"curl -X POST 'https://example.com/api' \\\n  -H 'Content-Type: application/json' \\\n  --data-raw '{\"key\":\"value\"}'"}
+              placeholder={
+                "curl -X POST 'https://example.com/api' \\\n  -H 'Content-Type: application/json' \\\n  --data-raw '{\"key\":\"value\"}'"
+              }
               value={curlInput}
               onChange={(e) => {
                 setCurlInput(e.target.value);
@@ -241,7 +243,13 @@ function EditRequest(): JSX.Element {
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => { setImportOpen(false); setCurlInput(""); setImportError(false); }}>
+            <Button
+              onClick={() => {
+                setImportOpen(false);
+                setCurlInput("");
+                setImportError(false);
+              }}
+            >
               Cancel
             </Button>
             <Button variant="contained" disableElevation onClick={handleImportCurl} disabled={!curlInput.trim()}>
