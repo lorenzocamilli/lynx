@@ -129,6 +129,137 @@ func TestFindRequestLogs(t *testing.T) {
 	})
 }
 
+func TestDeleteRequestLog(t *testing.T) {
+	t.Parallel()
+
+	path := t.TempDir() + "bolt.db"
+	boltDB, err := bbolt.Open(path, 0o600, nil)
+	if err != nil {
+		t.Fatalf("failed to open bolt database: %v", err)
+	}
+
+	db, err := bolt.DatabaseFromBoltDB(boltDB)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	projectID := ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy)
+
+	err = db.UpsertProject(context.Background(), proj.Project{
+		ID: projectID,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error upserting project: %v", err)
+	}
+
+	fixture := reqlog.RequestLog{
+		ID:        ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy),
+		ProjectID: projectID,
+		URL:       mustParseURL(t, "https://example.com/delete-test"),
+		Method:    http.MethodGet,
+		Proto:     "HTTP/1.1",
+	}
+
+	err = db.StoreRequestLog(context.Background(), fixture)
+	if err != nil {
+		t.Fatalf("unexpected error storing request log: %v", err)
+	}
+
+	err = db.DeleteRequestLog(context.Background(), projectID, fixture.ID)
+	if err != nil {
+		t.Fatalf("unexpected error deleting request log: %v", err)
+	}
+
+	_, err = db.FindRequestLogByID(context.Background(), projectID, fixture.ID)
+	if !errors.Is(err, reqlog.ErrRequestNotFound) {
+		t.Fatalf("expected reqlog.ErrRequestNotFound after delete, got: %v", err)
+	}
+
+	// BoltDB Delete is idempotent — deleting a non-existent key returns nil.
+	err = db.DeleteRequestLog(context.Background(), projectID, fixture.ID)
+	if err != nil {
+		t.Fatalf("expected nil on second delete, got: %v", err)
+	}
+}
+
+func TestCountRequestLogs(t *testing.T) {
+	t.Parallel()
+
+	path := t.TempDir() + "bolt.db"
+	boltDB, err := bbolt.Open(path, 0o600, nil)
+	if err != nil {
+		t.Fatalf("failed to open bolt database: %v", err)
+	}
+
+	db, err := bolt.DatabaseFromBoltDB(boltDB)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	projectID := ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy)
+
+	err = db.UpsertProject(context.Background(), proj.Project{
+		ID: projectID,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error upserting project: %v", err)
+	}
+
+	fixtures := []reqlog.RequestLog{
+		{
+			ID:        ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy),
+			ProjectID: projectID,
+			URL:       mustParseURL(t, "https://example.com/count-1"),
+			Method:    http.MethodGet,
+			Proto:     "HTTP/1.1",
+		},
+		{
+			ID:        ulid.MustNew(ulid.Timestamp(time.Now())+100, ulidEntropy),
+			ProjectID: projectID,
+			URL:       mustParseURL(t, "https://example.com/count-2"),
+			Method:    http.MethodGet,
+			Proto:     "HTTP/1.1",
+		},
+		{
+			ID:        ulid.MustNew(ulid.Timestamp(time.Now())+200, ulidEntropy),
+			ProjectID: projectID,
+			URL:       mustParseURL(t, "https://example.com/count-3"),
+			Method:    http.MethodGet,
+			Proto:     "HTTP/1.1",
+		},
+	}
+
+	for _, reqLog := range fixtures {
+		err = db.StoreRequestLog(context.Background(), reqLog)
+		if err != nil {
+			t.Fatalf("unexpected error storing request log: %v", err)
+		}
+	}
+
+	count, err := db.CountRequestLogs(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("unexpected error counting request logs: %v", err)
+	}
+	if count != 3 {
+		t.Fatalf("expected count 3, got %d", count)
+	}
+
+	err = db.DeleteRequestLog(context.Background(), projectID, fixtures[0].ID)
+	if err != nil {
+		t.Fatalf("unexpected error deleting request log: %v", err)
+	}
+
+	count, err = db.CountRequestLogs(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("unexpected error counting request logs after delete: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected count 2 after delete, got %d", count)
+	}
+}
+
 func mustParseURL(t *testing.T, s string) *url.URL {
 	t.Helper()
 

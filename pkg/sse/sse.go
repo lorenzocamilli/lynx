@@ -67,6 +67,7 @@ func Handler(b *Broadcaster) http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
+		flusher.Flush()
 
 		ch, unsub := b.subscribe()
 		defer unsub()
