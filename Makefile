@@ -1,9 +1,12 @@
 export CGO_ENABLED = 0
 export NEXT_TELEMETRY_DISABLED = 1
 
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo dev)
+GO_LDFLAGS := -s -w -X main.version=$(VERSION)
+
 .PHONY: build
 build: build-admin
-	go build ./cmd/lynx
+	go build -ldflags "$(GO_LDFLAGS)" ./cmd/lynx
 
 .PHONY: build-admin
 build-admin:
