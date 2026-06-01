@@ -101,6 +101,10 @@ function EditRequest(): JSX.Element {
 
     setURL(senderRequest.url);
     setMethod(senderRequest.method);
+    const protoEntry = [...httpProtoMap.entries()].find(([, v]) => v === senderRequest.proto);
+    if (protoEntry) {
+      setProto(protoEntry[0]);
+    }
     setBody(senderRequest.body || "");
 
     const newQueryParams = queryParamsFromURL(senderRequest.url);
@@ -119,6 +123,7 @@ function EditRequest(): JSX.Element {
   const createOrUpdateRequestAndSend = () => {
     const senderReq = getReqResult?.data?.senderRequest;
     createOrUpdateRequest({
+      refetchQueries: ["GetSenderRequests"],
       variables: {
         request: {
           // Update existing sender request if it was cloned from a request log

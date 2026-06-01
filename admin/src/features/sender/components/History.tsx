@@ -15,7 +15,10 @@ import {
 
 function History(): JSX.Element {
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const { data, loading, refetch } = useGetSenderRequestsQuery({ variables: { limit } });
+  const { data, loading, refetch } = useGetSenderRequestsQuery({
+    variables: { limit },
+    fetchPolicy: "cache-and-network",
+  });
 
   const router = useRouter();
   const activeId = router.query.id as string | undefined;
@@ -69,7 +72,7 @@ function History(): JSX.Element {
           cURL command copied to clipboard.
         </Alert>
       </Snackbar>
-      {!loading && data?.senderRequests && data?.senderRequests.length > 0 && (
+      {data?.senderRequests && data?.senderRequests.length > 0 && (
         <>
           <RequestsTable
             requests={data.senderRequests}
