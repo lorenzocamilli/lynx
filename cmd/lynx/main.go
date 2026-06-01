@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	llog "log"
 
 	"go.uber.org/zap"
@@ -11,6 +13,15 @@ import (
 )
 
 func main() {
+	showVersion := flag.Bool("version", false, "Print version and exit.")
+	flag.BoolVar(showVersion, "v", false, "Print version and exit (shorthand).")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("lynx %s\n", version)
+		return
+	}
+
 	cfg, err := config.Load(config.DefaultPath)
 	if err != nil {
 		llog.Fatalf("Failed to load config: %v", err)
