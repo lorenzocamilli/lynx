@@ -8,10 +8,18 @@ build: build-admin
 .PHONY: build-admin
 build-admin:
 	cd admin && \
-	npm install --legacy-peer-deps && \
+	npm ci --legacy-peer-deps && \
 	npm run export && \
 	rm -rf ../cmd/lynx/admin && \
 	mv dist ../cmd/lynx/admin
+
+.PHONY: check
+check:
+	go build ./cmd/... ./pkg/...
+	go test ./cmd/... ./pkg/...
+	go test -race ./cmd/... ./pkg/...
+	go vet ./cmd/... ./pkg/...
+	cd admin && npm ci --legacy-peer-deps && npm run lint && npm run typecheck
 
 .PHONY: clean
 clean:

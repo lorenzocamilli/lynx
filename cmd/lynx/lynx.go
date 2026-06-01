@@ -124,10 +124,11 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	broadcaster := sse.NewBroadcaster()
 
 	reqLogService := reqlog.NewService(reqlog.Config{
-		Scope:       scope,
-		Repository:  boltDB,
-		Logger:      logger.Named("reqlog").Sugar(),
-		Broadcaster: broadcaster,
+		Scope:        scope,
+		Repository:   boltDB,
+		Logger:       logger.Named("reqlog").Sugar(),
+		Broadcaster:  broadcaster,
+		MaxBodyBytes: cfg.MaxBodyBytes,
 	})
 
 	interceptService := intercept.NewService(intercept.Config{

@@ -11,15 +11,19 @@ import (
 
 const DefaultPath = "~/.lynx/config.yaml"
 
+const DefaultMaxBodyBytes = 10 * 1024 * 1024 // 10 MB
+
 type Config struct {
-	Host string `yaml:"host" json:"host"`
-	Port int    `yaml:"port" json:"port"`
+	Host         string `yaml:"host" json:"host"`
+	Port         int    `yaml:"port" json:"port"`
+	MaxBodyBytes int64  `yaml:"maxBodyBytes" json:"maxBodyBytes"`
 }
 
 func Default() Config {
 	return Config{
-		Host: "127.0.0.1",
-		Port: 8080,
+		Host:         "127.0.0.1",
+		Port:         8080,
+		MaxBodyBytes: DefaultMaxBodyBytes,
 	}
 }
 
