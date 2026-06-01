@@ -5,3 +5,11 @@
 /cmd/lynx/admin
 *.pem
 *.test
+
+# Build artifacts
+*.tsbuildinfo
+
+# Local tooling / working notes
+.codex
+/PLAN.md
+/CODEBASE_REPORT.md
