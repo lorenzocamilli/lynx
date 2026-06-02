@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/go-homedir"
@@ -34,6 +35,15 @@ import (
 )
 
 var version = "0.0.0"
+
+const (
+	// shutdownTimeout bounds how long graceful shutdown waits for in-flight
+	// connections to drain before the process exits.
+	shutdownTimeout = 10 * time.Second
+
+	// readHeaderTimeout bounds how long the server waits for request headers.
+	readHeaderTimeout = 20 * time.Second
+)
 
 //go:embed admin
 //go:embed admin/_next/static
@@ -297,10 +307,14 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	router.PathPrefix("").Handler(p)
 
 	httpServer := &http.Server{
-		Addr:         addr,
-		Handler:      router,
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
-		ErrorLog:     zap.NewStdLog(logger.Named("http")),
+		Addr:    addr,
+		Handler: router,
+		// ReadHeaderTimeout bounds the header-read phase to mitigate slow-header
+		// (Slowloris) attacks. It only applies before a CONNECT tunnel is hijacked,
+		// so it doesn't cap long-lived proxy connections or streamed bodies.
+		ReadHeaderTimeout: readHeaderTimeout,
+		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		ErrorLog:          zap.NewStdLog(logger.Named("http")),
 	}
 
 	go func() {
@@ -319,8 +333,11 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 
 	mainLogger.Info("Shutting down HTTP server. Press Ctrl+C to force quit.")
 
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
 	//nolint:contextcheck
-	err = httpServer.Shutdown(context.Background())
+	err = httpServer.Shutdown(shutdownCtx)
 	if err != nil {
 		return fmt.Errorf("failed to shutdown HTTP server: %w", err)
 	}

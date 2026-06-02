@@ -1,7 +1,9 @@
+version: 2
+
 before:
   hooks:
     - make clean
-    - sh -c "NEXT_PUBLIC_VERSION={{ .Version}} make build-admin"
+    - sh -c "NEXT_PUBLIC_VERSION={{ .Version }} make build-admin"
     - go mod tidy
 
 builds:
@@ -9,7 +11,7 @@ builds:
       - CGO_ENABLED=0
     main: ./cmd/lynx
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w -X main.version={{ .Version }}
     goos:
       - linux
       - windows
@@ -19,86 +21,41 @@ builds:
       - arm64
 
 archives:
-  - replacements:
-      darwin: macOS
-      linux: Linux
-      windows: Windows
-      amd64: x86_64
+  - name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
     format_overrides:
       - goos: windows
-        format: zip
-
-brews:
-  - tap:
-      owner: lorenzocamilli
-      name: homebrew-tap
-    folder: Formula
-    homepage: https://github.com/lorenzocamilli/lynx
-    description: An HTTP toolkit for security research.
-    license: MIT
-    commit_author:
-      name: Lorenzo Camilli
-      email: miosolospotify@gmail.com
-    test: |
-      system "#{bin}/lynx -v"
-
-snapcrafts:
-  - publish: true
-    summary: An HTTP toolkit for security research.
-    description: |
-      Lynx is an HTTP toolkit for security research. It aims to become an open
-      source alternative to commercial software like Burp Suite Pro, with
-      powerful features tailored to the needs of the infosec and bug bounty
-      community.
-    grade: stable
-    confinement: strict
-    license: MIT
-    apps:
-      lynx:
-        command: lynx
-        plugs: ["network", "network-bind"]
-
-scoop:
-  bucket:
-    owner: lorenzocamilli
-    name: scoop-bucket
-  commit_author:
-    name: Lorenzo Camilli
-    email: miosolospotify@gmail.com
-  homepage: https://github.com/lorenzocamilli/lynx
-  description: An HTTP toolkit for security research.
-  license: MIT
+        formats: [zip]
 
 dockers:
   - extra_files:
-    - go.mod
-    - go.sum
-    - pkg
-    - cmd
-    - admin
+      - go.mod
+      - go.sum
+      - pkg
+      - cmd
+      - admin
     image_templates:
-    - "ghcr.io/lorenzocamilli/lynx:{{ .Version }}"
-    - "ghcr.io/lorenzocamilli/lynx:{{ .Major }}"
-    - "ghcr.io/lorenzocamilli/lynx:{{ .Major }}.{{ .Minor }}"
-    - "ghcr.io/lorenzocamilli/lynx:latest"
-    - "lorenzocamilli/lynx:{{ .Version }}"
-    - "lorenzocamilli/lynx:{{ .Major }}"
-    - "lorenzocamilli/lynx:{{ .Major }}.{{ .Minor }}"
-    - "lorenzocamilli/lynx:latest"
+      - "ghcr.io/lorenzocamilli/lynx:{{ .Version }}"
+      - "ghcr.io/lorenzocamilli/lynx:{{ .Major }}"
+      - "ghcr.io/lorenzocamilli/lynx:{{ .Major }}.{{ .Minor }}"
+      - "ghcr.io/lorenzocamilli/lynx:latest"
     build_flag_templates:
-    - "--pull"
-    - "--label=org.opencontainers.image.created={{.Date}}"
-    - "--label=org.opencontainers.image.title={{.ProjectName}}"
-    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.source=https://github.com/lorenzocamilli/lynx"
-    - "--build-arg=LYNX_VERSION={{.Version}}"
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/lorenzocamilli/lynx"
+      - "--build-arg=LYNX_VERSION={{ .Version }}"
 
 checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
@@ -106,3 +63,9 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+release:
+  github:
+    owner: lorenzocamilli
+    name: lynx
+  prerelease: auto
