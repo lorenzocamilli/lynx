@@ -11,6 +11,7 @@ import {
   FormHelperText,
   IconButton,
   InputAdornment,
+  MenuItem,
   Snackbar,
   Tab,
   TextField,
@@ -35,7 +36,10 @@ enum TabValue {
 interface AppConfig {
   host: string;
   port: number;
+  logLevel: string;
 }
+
+const logLevels = ["debug", "info", "warn", "error"];
 
 function FilterTextField(props: TextFieldProps): JSX.Element {
   return (
@@ -114,7 +118,7 @@ export default function Settings(): JSX.Element {
   };
 
   // Application config state.
-  const [appConfig, setAppConfig] = useState<AppConfig>({ host: "127.0.0.1", port: 8080 });
+  const [appConfig, setAppConfig] = useState<AppConfig>({ host: "127.0.0.1", port: 8080, logLevel: "info" });
   const [appConfigLoading, setAppConfigLoading] = useState(false);
   const [appConfigSaving, setAppConfigSaving] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
@@ -348,6 +352,22 @@ export default function Settings(): JSX.Element {
                 variant="outlined"
                 fullWidth
               />
+              <TextField
+                select
+                label="Log level"
+                helperText="Minimum severity written to the server log."
+                value={appConfig.logLevel ?? "info"}
+                onChange={(e) => setAppConfig((c) => ({ ...c, logLevel: e.target.value }))}
+                slotProps={{ inputLabel: { shrink: true } }}
+                variant="outlined"
+                fullWidth
+              >
+                {logLevels.map((level) => (
+                  <MenuItem key={level} value={level}>
+                    {level}
+                  </MenuItem>
+                ))}
+              </TextField>
               <Box>
                 <Button
                   variant="contained"
