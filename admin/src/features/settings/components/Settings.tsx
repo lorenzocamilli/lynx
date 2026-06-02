@@ -37,6 +37,7 @@ interface AppConfig {
   host: string;
   port: number;
   logLevel: string;
+  redactHeaders?: string[];
 }
 
 const logLevels = ["debug", "info", "warn", "error"];
@@ -119,6 +120,9 @@ export default function Settings(): JSX.Element {
 
   // Application config state.
   const [appConfig, setAppConfig] = useState<AppConfig>({ host: "127.0.0.1", port: 8080, logLevel: "info" });
+  // Raw comma-separated input for redactHeaders; parsed into an array on save so
+  // the separator stays typeable while editing.
+  const [redactHeadersInput, setRedactHeadersInput] = useState("");
   const [appConfigLoading, setAppConfigLoading] = useState(false);
   const [appConfigSaving, setAppConfigSaving] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
@@ -128,7 +132,10 @@ export default function Settings(): JSX.Element {
     setAppConfigLoading(true);
     authedFetch("/api/settings")
       .then((res) => res.json())
-      .then((data: AppConfig) => setAppConfig(data))
+      .then((data: AppConfig) => {
+        setAppConfig(data);
+        setRedactHeadersInput((data.redactHeaders ?? []).join(", "));
+      })
       .catch(() => setAppConfigError("Failed to load application settings."))
       .finally(() => setAppConfigLoading(false));
   }, []);
@@ -136,10 +143,14 @@ export default function Settings(): JSX.Element {
   const handleAppConfigSave = () => {
     setAppConfigSaving(true);
     setAppConfigError(null);
+    const redactHeaders = redactHeadersInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     authedFetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(appConfig),
+      body: JSON.stringify({ ...appConfig, redactHeaders }),
     })
       .then((res) => {
         if (!res.ok) throw new Error("Server error");
@@ -368,6 +379,15 @@ export default function Settings(): JSX.Element {
                   </MenuItem>
                 ))}
               </TextField>
+              <TextField
+                label="Redact headers"
+                helperText="Comma-separated header names masked in stored logs (e.g. Authorization, Cookie). Leave empty to store captured traffic verbatim."
+                value={redactHeadersInput}
+                onChange={(e) => setRedactHeadersInput(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+                variant="outlined"
+                fullWidth
+              />
               <Box>
                 <Button
                   variant="contained"
