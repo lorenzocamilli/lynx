@@ -20,6 +20,11 @@ type Config struct {
 	Port         int    `yaml:"port" json:"port"`
 	MaxBodyBytes int64  `yaml:"maxBodyBytes" json:"maxBodyBytes"`
 	LogLevel     string `yaml:"logLevel" json:"logLevel"`
+	// RedactHeaders lists header names whose values are masked before a request
+	// or response is stored in the log. Empty (default) disables redaction —
+	// captured traffic is stored verbatim, which is what most pentest workflows
+	// want. Matching is case-insensitive, e.g. ["Authorization", "Cookie"].
+	RedactHeaders []string `yaml:"redactHeaders" json:"redactHeaders"`
 }
 
 func Default() Config {

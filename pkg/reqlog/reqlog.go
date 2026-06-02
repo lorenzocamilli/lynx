@@ -61,6 +61,7 @@ type Service struct {
 	logger                   log.Logger
 	broadcaster              *sse.Broadcaster
 	maxBodyBytes             int64
+	redactHeaders            []string
 }
 
 type FindRequestsFilter struct {
@@ -78,6 +79,7 @@ type Config struct {
 	Logger          log.Logger
 	Broadcaster     *sse.Broadcaster
 	MaxBodyBytes    int64
+	RedactHeaders   []string
 }
 
 func NewService(cfg Config) *Service {
@@ -92,6 +94,7 @@ func NewService(cfg Config) *Service {
 		logger:          cfg.Logger,
 		broadcaster:     cfg.Broadcaster,
 		maxBodyBytes:    maxBody,
+		redactHeaders:   cfg.RedactHeaders,
 	}
 
 	if s.logger == nil {
@@ -134,6 +137,12 @@ func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *
 	resLog, err := ParseHTTPResponse(res)
 	if err != nil {
 		return err
+	}
+
+	// resLog.Header is already a clone (see ParseHTTPResponse), so redacting
+	// in place only affects the stored log, not the forwarded response.
+	if len(svc.redactHeaders) > 0 {
+		redactHeaders(resLog.Header, svc.redactHeaders)
 	}
 
 	return svc.repo.StoreResponseLog(ctx, svc.activeProjectID, reqLogID, resLog)
@@ -196,13 +205,21 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 			return
 		}
 
+		// Redact sensitive headers on a copy so only the stored log is affected,
+		// never the request still being forwarded upstream.
+		header := clone.Header
+		if len(svc.redactHeaders) > 0 {
+			header = clone.Header.Clone()
+			redactHeaders(header, svc.redactHeaders)
+		}
+
 		reqLog := RequestLog{
 			ID:        reqID,
 			ProjectID: svc.activeProjectID,
 			Method:    clone.Method,
 			URL:       clone.URL,
 			Proto:     clone.Proto,
-			Header:    clone.Header,
+			Header:    header,
 			Body:      body,
 		}
 
