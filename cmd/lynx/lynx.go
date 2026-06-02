@@ -21,6 +21,7 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/lorenzocamilli/lynx/pkg/api"
 	"github.com/lorenzocamilli/lynx/pkg/config"
@@ -287,6 +288,13 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 		}
 		if input.Host == "" {
 			input.Host = "127.0.0.1"
+		}
+		if input.LogLevel == "" {
+			input.LogLevel = config.DefaultLogLevel
+		}
+		if _, err := zapcore.ParseLevel(input.LogLevel); err != nil {
+			http.Error(w, "logLevel must be one of: debug, info, warn, error", http.StatusBadRequest)
+			return
 		}
 
 		if err := config.Save(config.DefaultPath, input); err != nil {

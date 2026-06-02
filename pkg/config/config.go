@@ -13,10 +13,13 @@ const DefaultPath = "~/.lynx/config.yaml"
 
 const DefaultMaxBodyBytes = 10 * 1024 * 1024 // 10 MB
 
+const DefaultLogLevel = "info"
+
 type Config struct {
 	Host         string `yaml:"host" json:"host"`
 	Port         int    `yaml:"port" json:"port"`
 	MaxBodyBytes int64  `yaml:"maxBodyBytes" json:"maxBodyBytes"`
+	LogLevel     string `yaml:"logLevel" json:"logLevel"`
 }
 
 func Default() Config {
@@ -24,6 +27,7 @@ func Default() Config {
 		Host:         "127.0.0.1",
 		Port:         8080,
 		MaxBodyBytes: DefaultMaxBodyBytes,
+		LogLevel:     DefaultLogLevel,
 	}
 }
 

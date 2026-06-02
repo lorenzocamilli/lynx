@@ -27,7 +27,7 @@ func main() {
 		llog.Fatalf("Failed to load config: %v", err)
 	}
 
-	logger, err := log.NewZapLogger(false, false)
+	logger, err := log.NewZapLogger(false, false, cfg.LogLevel)
 	if err != nil {
 		llog.Fatalf("Failed to create logger: %v", err)
 	}
