@@ -11,13 +11,28 @@ import (
 
 const DefaultPath = "~/.lynx/config.yaml"
 
+const DefaultMaxBodyBytes = 10 * 1024 * 1024 // 10 MB
+
+const DefaultLogLevel = "info"
+
 type Config struct {
-	Port int `yaml:"port" json:"port"`
+	Host         string `yaml:"host" json:"host"`
+	Port         int    `yaml:"port" json:"port"`
+	MaxBodyBytes int64  `yaml:"maxBodyBytes" json:"maxBodyBytes"`
+	LogLevel     string `yaml:"logLevel" json:"logLevel"`
+	// RedactHeaders lists header names whose values are masked before a request
+	// or response is stored in the log. Empty (default) disables redaction —
+	// captured traffic is stored verbatim, which is what most pentest workflows
+	// want. Matching is case-insensitive, e.g. ["Authorization", "Cookie"].
+	RedactHeaders []string `yaml:"redactHeaders" json:"redactHeaders"`
 }
 
 func Default() Config {
 	return Config{
-		Port: 8080,
+		Host:         "127.0.0.1",
+		Port:         8080,
+		MaxBodyBytes: DefaultMaxBodyBytes,
+		LogLevel:     DefaultLogLevel,
 	}
 }
 

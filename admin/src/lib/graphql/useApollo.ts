@@ -1,13 +1,26 @@
 import { ApolloClient, HttpLink, InMemoryCache, NormalizedCacheObject } from "@apollo/client";
+import { setContext } from "@apollo/client/link/context";
+
+import { getToken } from "lib/auth";
 
 let apolloClient: ApolloClient<NormalizedCacheObject>;
 
 function createApolloClient() {
+  const httpLink = new HttpLink({ uri: "/api/graphql/" });
+
+  const authLink = setContext(async (_, { headers }) => {
+    const token = await getToken();
+    return {
+      headers: {
+        ...headers,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    };
+  });
+
   return new ApolloClient({
     ssrMode: typeof window === "undefined",
-    link: new HttpLink({
-      uri: "/api/graphql/",
-    }),
+    link: authLink.concat(httpLink),
     cache: new InMemoryCache({
       typePolicies: {
         Query: {

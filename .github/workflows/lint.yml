@@ -1,16 +1,28 @@
 name: Lint
 on: [push, pull_request]
-defaults:
-  run:
-    working-directory: ./admin
 jobs:
   lint-admin:
     runs-on: ubuntu-latest
     name: Admin (Next.js)
+    defaults:
+      run:
+        working-directory: ./admin
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "16"
-      - run: yarn install
-      - run: yarn run lint
+          node-version: "20"
+      - run: npm ci --legacy-peer-deps
+      - run: npm run lint
+      - run: npm audit --omit=dev --audit-level=high
+  lint-go:
+    runs-on: ubuntu-latest
+    name: Go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: "1.25"
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest

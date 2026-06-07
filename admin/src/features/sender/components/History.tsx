@@ -1,4 +1,4 @@
-import { Box, Button, MenuItem, Paper, Typography } from "@mui/material";
+import { Alert, Box, Button, MenuItem, Paper, Snackbar, Typography } from "@mui/material";
 import { useRouter } from "next/router";
 import { useState } from "react";
 
@@ -6,11 +6,19 @@ const PAGE_SIZE = 50;
 
 import RequestsTable from "lib/components/RequestsTable";
 import useContextMenu from "lib/components/useContextMenu";
-import { useDeleteSenderRequestMutation, useGetSenderRequestsQuery } from "lib/graphql/generated";
+import { curlFromRequest } from "lib/curlFromRequest";
+import {
+  useDeleteSenderRequestMutation,
+  useGetSenderRequestLazyQuery,
+  useGetSenderRequestsQuery,
+} from "lib/graphql/generated";
 
 function History(): JSX.Element {
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const { data, loading, refetch } = useGetSenderRequestsQuery({ variables: { limit } });
+  const { data, loading, refetch } = useGetSenderRequestsQuery({
+    variables: { limit },
+    fetchPolicy: "cache-and-network",
+  });
 
   const router = useRouter();
   const activeId = router.query.id as string | undefined;
@@ -18,6 +26,8 @@ function History(): JSX.Element {
   const [contextId, setContextId] = useState("");
   const [Menu, handleContextMenu, handleContextMenuClose] = useContextMenu();
   const [deleteSenderRequest] = useDeleteSenderRequestMutation();
+  const [getFullRequest] = useGetSenderRequestLazyQuery();
+  const [curlCopiedOpen, setCurlCopiedOpen] = useState(false);
 
   const handleRowClick = (id: string) => {
     router.push(`/sender?id=${id}`);
@@ -26,6 +36,15 @@ function History(): JSX.Element {
   const handleRowContextMenu = (e: React.MouseEvent, id: string) => {
     setContextId(id);
     handleContextMenu(e);
+  };
+
+  const handleCopyAsCurlClick = async () => {
+    handleContextMenuClose();
+    const { data } = await getFullRequest({ variables: { id: contextId } });
+    const req = data?.senderRequest;
+    if (!req) return;
+    await navigator.clipboard.writeText(curlFromRequest(req.method, req.url, req.headers ?? [], req.body));
+    setCurlCopiedOpen(true);
   };
 
   const handleDeleteClick = async () => {
@@ -40,9 +59,20 @@ function History(): JSX.Element {
   return (
     <Box>
       <Menu>
+        <MenuItem onClick={handleCopyAsCurlClick}>Copy as cURL</MenuItem>
         <MenuItem onClick={handleDeleteClick}>Delete request</MenuItem>
       </Menu>
-      {!loading && data?.senderRequests && data?.senderRequests.length > 0 && (
+      <Snackbar
+        open={curlCopiedOpen}
+        autoHideDuration={3000}
+        onClose={() => setCurlCopiedOpen(false)}
+        anchorOrigin={{ horizontal: "center", vertical: "bottom" }}
+      >
+        <Alert onClose={() => setCurlCopiedOpen(false)} severity="success">
+          cURL command copied to clipboard.
+        </Alert>
+      </Snackbar>
+      {data?.senderRequests && data?.senderRequests.length > 0 && (
         <>
           <RequestsTable
             requests={data.senderRequests}

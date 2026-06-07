@@ -1,4 +1,5 @@
 import { useApolloClient } from "@apollo/client";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { TabContext, TabPanel } from "@mui/lab";
 import TabList from "@mui/lab/TabList";
 import {
@@ -8,16 +9,21 @@ import {
   CircularProgress,
   FormControl,
   FormHelperText,
+  IconButton,
+  InputAdornment,
+  MenuItem,
   Snackbar,
   Tab,
   TextField,
   TextFieldProps,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import MaterialLink from "@mui/material/Link";
 import { useEffect, useState } from "react";
 
 import { useActiveProject } from "lib/ActiveProjectContext";
+import { authedFetch, getToken } from "lib/auth";
 import Link from "lib/components/Link";
 import { ActiveProjectDocument, useUpdateInterceptSettingsMutation } from "lib/graphql/generated";
 import { withoutTypename } from "lib/graphql/omitTypename";
@@ -28,8 +34,13 @@ enum TabValue {
 }
 
 interface AppConfig {
+  host: string;
   port: number;
+  logLevel: string;
+  redactHeaders?: string[];
 }
+
+const logLevels = ["debug", "info", "warn", "error"];
 
 function FilterTextField(props: TextFieldProps): JSX.Element {
   return (
@@ -108,7 +119,10 @@ export default function Settings(): JSX.Element {
   };
 
   // Application config state.
-  const [appConfig, setAppConfig] = useState<AppConfig>({ port: 8080 });
+  const [appConfig, setAppConfig] = useState<AppConfig>({ host: "127.0.0.1", port: 8080, logLevel: "info" });
+  // Raw comma-separated input for redactHeaders; parsed into an array on save so
+  // the separator stays typeable while editing.
+  const [redactHeadersInput, setRedactHeadersInput] = useState("");
   const [appConfigLoading, setAppConfigLoading] = useState(false);
   const [appConfigSaving, setAppConfigSaving] = useState(false);
   const [restartRequired, setRestartRequired] = useState(false);
@@ -116,9 +130,12 @@ export default function Settings(): JSX.Element {
 
   useEffect(() => {
     setAppConfigLoading(true);
-    fetch("/api/settings")
+    authedFetch("/api/settings")
       .then((res) => res.json())
-      .then((data: AppConfig) => setAppConfig(data))
+      .then((data: AppConfig) => {
+        setAppConfig(data);
+        setRedactHeadersInput((data.redactHeaders ?? []).join(", "));
+      })
       .catch(() => setAppConfigError("Failed to load application settings."))
       .finally(() => setAppConfigLoading(false));
   }, []);
@@ -126,10 +143,14 @@ export default function Settings(): JSX.Element {
   const handleAppConfigSave = () => {
     setAppConfigSaving(true);
     setAppConfigError(null);
-    fetch("/api/settings", {
+    const redactHeaders = redactHeadersInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    authedFetch("/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(appConfig),
+      body: JSON.stringify({ ...appConfig, redactHeaders }),
     })
       .then((res) => {
         if (!res.ok) throw new Error("Server error");
@@ -137,6 +158,17 @@ export default function Settings(): JSX.Element {
       })
       .catch(() => setAppConfigError("Failed to save application settings."))
       .finally(() => setAppConfigSaving(false));
+  };
+
+  const [adminToken, setAdminToken] = useState("");
+  const [tokenCopied, setTokenCopied] = useState(false);
+  useEffect(() => {
+    getToken().then(setAdminToken);
+  }, []);
+  const handleCopyToken = async () => {
+    await navigator.clipboard.writeText(adminToken);
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 2000);
   };
 
   const [tabValue, setTabValue] = useState(TabValue.Intercept);
@@ -195,7 +227,7 @@ export default function Settings(): JSX.Element {
                   />
                   <FormHelperText>
                     Filter expression to match incoming requests on. When set, only matching requests are intercepted.{" "}
-                    <MaterialLink href="https://github.com/lorenzocamilli/lynxpipe" target="_blank">
+                    <MaterialLink href="https://github.com/lorenzocamilli/lynx" target="_blank">
                       Read docs.
                     </MaterialLink>
                   </FormHelperText>
@@ -227,7 +259,7 @@ export default function Settings(): JSX.Element {
                   />
                   <FormHelperText>
                     Filter expression to match received responses on. When set, only matching responses are intercepted.{" "}
-                    <MaterialLink href="https://github.com/lorenzocamilli/lynxpipe" target="_blank">
+                    <MaterialLink href="https://github.com/lorenzocamilli/lynx" target="_blank">
                       Read docs.
                     </MaterialLink>
                   </FormHelperText>
@@ -269,17 +301,90 @@ export default function Settings(): JSX.Element {
             </Alert>
           )}
 
+          <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>
+            Admin token
+          </Typography>
+          <Typography paragraph color="text.secondary" sx={{ mb: 2 }}>
+            Required for all API requests. Stored in <code>~/.lynx/token</code> and printed to the terminal at startup.
+          </Typography>
+          <Box sx={{ maxWidth: 480, mb: 4 }}>
+            <TextField
+              label="Access token"
+              value={adminToken}
+              variant="outlined"
+              fullWidth
+              slotProps={{
+                input: {
+                  readOnly: true,
+                  sx: { fontFamily: "var(--font-code)", fontSize: "0.8rem" },
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title={tokenCopied ? "Copied!" : "Copy token"}>
+                        <IconButton onClick={handleCopyToken} edge="end">
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Box>
+
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            Network
+          </Typography>
+
           {appConfigLoading ? (
             <CircularProgress />
           ) : (
             <Box component="form" sx={{ display: "flex", flexDirection: "column", maxWidth: 480, gap: 2 }}>
               <TextField
+                label="Listen address"
+                helperText='Host the proxy binds to. Use "127.0.0.1" (default, localhost only) or "0.0.0.0" to expose on all interfaces.'
+                value={appConfig.host}
+                onChange={(e) => setAppConfig((c) => ({ ...c, host: e.target.value }))}
+                slotProps={{ inputLabel: { shrink: true } }}
+                variant="outlined"
+                fullWidth
+              />
+              {appConfig.host === "0.0.0.0" && (
+                <Alert severity="warning" sx={{ mt: -1 }}>
+                  Binding to 0.0.0.0 exposes the admin UI and captured traffic to your entire network.
+                </Alert>
+              )}
+              <TextField
                 label="Listen port"
-                helperText="Port the proxy listens on (1–65535). Binds to all interfaces."
+                helperText="Port the proxy listens on (1–65535)."
                 type="number"
                 value={appConfig.port}
                 onChange={(e) => setAppConfig((c) => ({ ...c, port: parseInt(e.target.value, 10) }))}
                 slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1, max: 65535 } }}
+                variant="outlined"
+                fullWidth
+              />
+              <TextField
+                select
+                label="Log level"
+                helperText="Minimum severity written to the server log."
+                value={appConfig.logLevel ?? "info"}
+                onChange={(e) => setAppConfig((c) => ({ ...c, logLevel: e.target.value }))}
+                slotProps={{ inputLabel: { shrink: true } }}
+                variant="outlined"
+                fullWidth
+              >
+                {logLevels.map((level) => (
+                  <MenuItem key={level} value={level}>
+                    {level}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Redact headers"
+                helperText="Comma-separated header names masked in stored logs (e.g. Authorization, Cookie). Leave empty to store captured traffic verbatim."
+                value={redactHeadersInput}
+                onChange={(e) => setRedactHeadersInput(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
                 variant="outlined"
                 fullWidth
               />

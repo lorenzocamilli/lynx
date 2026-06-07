@@ -14,7 +14,11 @@ type Logger interface {
 	Errorw(msg string, v ...interface{})
 }
 
-func NewZapLogger(verbose, jsonLogs bool) (*zap.Logger, error) {
+// NewZapLogger builds the application logger. levelStr sets the minimum log
+// level ("debug", "info", "warn", "error"); an empty string keeps the
+// encoding-derived default. verbose enables development output (caller +
+// stacktrace) and jsonLogs switches the encoder from console to JSON.
+func NewZapLogger(verbose, jsonLogs bool, levelStr string) (*zap.Logger, error) {
 	var config zap.Config
 
 	if verbose {
@@ -71,6 +75,14 @@ func NewZapLogger(verbose, jsonLogs bool) (*zap.Logger, error) {
 			config.EncoderConfig.CallerKey = "C"
 			config.EncoderConfig.StacktraceKey = "S"
 		}
+	}
+
+	if levelStr != "" {
+		level, err := zapcore.ParseLevel(levelStr)
+		if err != nil {
+			return nil, fmt.Errorf("log: invalid log level %q: %w", levelStr, err)
+		}
+		config.Level = zap.NewAtomicLevelAt(level)
 	}
 
 	return config.Build()

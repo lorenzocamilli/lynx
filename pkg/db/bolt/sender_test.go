@@ -107,6 +107,61 @@ func TestFindRequestByID(t *testing.T) {
 	})
 }
 
+func TestDeleteSenderRequest(t *testing.T) {
+	t.Parallel()
+
+	path := t.TempDir() + "bolt.db"
+	boltDB, err := bbolt.Open(path, 0o600, nil)
+	if err != nil {
+		t.Fatalf("failed to open bolt database: %v", err)
+	}
+	defer boltDB.Close()
+
+	db, err := bolt.DatabaseFromBoltDB(boltDB)
+	if err != nil {
+		t.Fatalf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	projectID := ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy)
+
+	err = db.UpsertProject(context.Background(), proj.Project{
+		ID: projectID,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error upserting project: %v", err)
+	}
+
+	fixture := sender.Request{
+		ID:        ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy),
+		ProjectID: projectID,
+		URL:       exampleURL,
+		Method:    http.MethodGet,
+		Proto:     sender.HTTPProto20,
+	}
+
+	err = db.StoreSenderRequest(context.Background(), fixture)
+	if err != nil {
+		t.Fatalf("unexpected error storing sender request: %v", err)
+	}
+
+	err = db.DeleteSenderRequest(context.Background(), projectID, fixture.ID)
+	if err != nil {
+		t.Fatalf("unexpected error deleting sender request: %v", err)
+	}
+
+	_, err = db.FindSenderRequestByID(context.Background(), projectID, fixture.ID)
+	if !errors.Is(err, sender.ErrRequestNotFound) {
+		t.Fatalf("expected sender.ErrRequestNotFound after delete, got: %v", err)
+	}
+
+	// BoltDB Delete is idempotent — deleting a non-existent key returns nil.
+	err = db.DeleteSenderRequest(context.Background(), projectID, fixture.ID)
+	if err != nil {
+		t.Fatalf("expected nil on second delete, got: %v", err)
+	}
+}
+
 func TestFindSenderRequests(t *testing.T) {
 	t.Parallel()
 

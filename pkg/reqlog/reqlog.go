@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -61,6 +60,8 @@ type Service struct {
 	repo                     Repository
 	logger                   log.Logger
 	broadcaster              *sse.Broadcaster
+	maxBodyBytes             int64
+	redactHeaders            []string
 }
 
 type FindRequestsFilter struct {
@@ -77,15 +78,23 @@ type Config struct {
 	Repository      Repository
 	Logger          log.Logger
 	Broadcaster     *sse.Broadcaster
+	MaxBodyBytes    int64
+	RedactHeaders   []string
 }
 
 func NewService(cfg Config) *Service {
+	maxBody := cfg.MaxBodyBytes
+	if maxBody <= 0 {
+		maxBody = 10 * 1024 * 1024
+	}
 	s := &Service{
 		activeProjectID: cfg.ActiveProjectID,
 		repo:            cfg.Repository,
 		scope:           cfg.Scope,
 		logger:          cfg.Logger,
 		broadcaster:     cfg.Broadcaster,
+		maxBodyBytes:    maxBody,
+		redactHeaders:   cfg.RedactHeaders,
 	}
 
 	if s.logger == nil {
@@ -130,6 +139,12 @@ func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *
 		return err
 	}
 
+	// resLog.Header is already a clone (see ParseHTTPResponse), so redacting
+	// in place only affects the stored log, not the forwarded response.
+	if len(svc.redactHeaders) > 0 {
+		redactHeaders(resLog.Header, svc.redactHeaders)
+	}
+
 	return svc.repo.StoreResponseLog(ctx, svc.activeProjectID, reqLogID, resLog)
 }
 
@@ -142,18 +157,23 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 		var body []byte
 
 		if req.Body != nil {
-			// TODO: Use io.LimitReader.
 			var err error
 
-			body, err = ioutil.ReadAll(req.Body)
+			body, err = io.ReadAll(io.LimitReader(req.Body, svc.maxBodyBytes))
 			if err != nil {
 				svc.logger.Errorw("Failed to read request body for logging.",
 					"error", err)
 				return
 			}
 
-			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-			clone.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			if int64(len(body)) == svc.maxBodyBytes {
+				svc.logger.Infow("Request body truncated at max size.",
+					"maxBodyBytes", svc.maxBodyBytes,
+					"url", req.URL.String())
+			}
+
+			req.Body = io.NopCloser(bytes.NewBuffer(body))
+			clone.Body = io.NopCloser(bytes.NewBuffer(body))
 		}
 
 		// Bypass logging if no project is active.
@@ -185,13 +205,21 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 			return
 		}
 
+		// Redact sensitive headers on a copy so only the stored log is affected,
+		// never the request still being forwarded upstream.
+		header := clone.Header
+		if len(svc.redactHeaders) > 0 {
+			header = clone.Header.Clone()
+			redactHeaders(header, svc.redactHeaders)
+		}
+
 		reqLog := RequestLog{
 			ID:        reqID,
 			ProjectID: svc.activeProjectID,
 			Method:    clone.Method,
 			URL:       clone.URL,
 			Proto:     clone.Proto,
-			Header:    clone.Header,
+			Header:    header,
 			Body:      body,
 		}
 
@@ -233,10 +261,14 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 		clone := *res
 
 		if res.Body != nil {
-			// TODO: Use io.LimitReader.
-			body, err := io.ReadAll(res.Body)
+			body, err := io.ReadAll(io.LimitReader(res.Body, svc.maxBodyBytes))
 			if err != nil {
 				return fmt.Errorf("reqlog: could not read response body: %w", err)
+			}
+
+			if int64(len(body)) == svc.maxBodyBytes {
+				svc.logger.Infow("Response body truncated at max size.",
+					"maxBodyBytes", svc.maxBodyBytes)
 			}
 
 			res.Body = io.NopCloser(bytes.NewBuffer(body))

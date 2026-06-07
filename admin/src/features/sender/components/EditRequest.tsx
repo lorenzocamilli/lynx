@@ -1,5 +1,19 @@
 import AddIcon from "@mui/icons-material/Add";
-import { Alert, Box, Button, Fab, Tooltip, Typography, useTheme } from "@mui/material";
+import ContentPasteIcon from "@mui/icons-material/ContentPaste";
+import {
+  Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Fab,
+  TextField,
+  Tooltip,
+  Typography,
+  useTheme,
+} from "@mui/material";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 
@@ -14,6 +28,7 @@ import {
   useGetSenderRequestQuery,
   useSendRequestMutation,
 } from "lib/graphql/generated";
+import { parseCurl } from "lib/parseCurl";
 import { queryParamsFromURL } from "lib/queryParamsFromURL";
 import updateKeyPairItem from "lib/updateKeyPairItem";
 import updateURLQueryParams from "lib/updateURLQueryParams";
@@ -86,6 +101,10 @@ function EditRequest(): JSX.Element {
 
     setURL(senderRequest.url);
     setMethod(senderRequest.method);
+    const protoEntry = [...httpProtoMap.entries()].find(([, v]) => v === senderRequest.proto);
+    if (protoEntry) {
+      setProto(protoEntry[0]);
+    }
     setBody(senderRequest.body || "");
 
     const newQueryParams = queryParamsFromURL(senderRequest.url);
@@ -104,6 +123,7 @@ function EditRequest(): JSX.Element {
   const createOrUpdateRequestAndSend = () => {
     const senderReq = getReqResult?.data?.senderRequest;
     createOrUpdateRequest({
+      refetchQueries: ["GetSenderRequests"],
       variables: {
         request: {
           // Update existing sender request if it was cloned from a request log
@@ -138,6 +158,26 @@ function EditRequest(): JSX.Element {
   const handleFormSubmit: React.FormEventHandler = (e) => {
     e.preventDefault();
     createOrUpdateRequestAndSend();
+  };
+
+  const [importOpen, setImportOpen] = useState(false);
+  const [curlInput, setCurlInput] = useState("");
+  const [importError, setImportError] = useState(false);
+
+  const handleImportCurl = () => {
+    const parsed = parseCurl(curlInput);
+    if (!parsed) {
+      setImportError(true);
+      return;
+    }
+    const m = (Object.values(HttpMethod).find((v) => v === parsed.method) ?? defaultMethod) as HttpMethod;
+    setMethod(m);
+    handleURLChange(parsed.url);
+    setHeaders([...parsed.headers, { key: "", value: "" }]);
+    setBody(parsed.body);
+    setCurlInput("");
+    setImportError(false);
+    setImportOpen(false);
   };
 
   const handleNewRequest = () => {
@@ -180,7 +220,48 @@ function EditRequest(): JSX.Element {
           >
             Send
           </Button>
+          <Tooltip title="Import from cURL">
+            <Button variant="outlined" onClick={() => setImportOpen(true)} sx={{ minWidth: 0, px: 1.5 }}>
+              <ContentPasteIcon fontSize="small" />
+            </Button>
+          </Tooltip>
         </Box>
+        <Dialog open={importOpen} onClose={() => setImportOpen(false)} fullWidth maxWidth="sm">
+          <DialogTitle>Import from cURL</DialogTitle>
+          <DialogContent>
+            <TextField
+              autoFocus
+              multiline
+              fullWidth
+              minRows={4}
+              placeholder={
+                "curl -X POST 'https://example.com/api' \\\n  -H 'Content-Type: application/json' \\\n  --data-raw '{\"key\":\"value\"}'"
+              }
+              value={curlInput}
+              onChange={(e) => {
+                setCurlInput(e.target.value);
+                setImportError(false);
+              }}
+              error={importError}
+              helperText={importError ? "Could not parse cURL command. Make sure it starts with 'curl'." : undefined}
+              sx={{ mt: 1, fontFamily: "var(--font-code)" }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setImportOpen(false);
+                setCurlInput("");
+                setImportError(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button variant="contained" disableElevation onClick={handleImportCurl} disabled={!curlInput.trim()}>
+              Import
+            </Button>
+          </DialogActions>
+        </Dialog>
         {createResult.error && (
           <Alert severity="error" sx={{ mt: 1 }}>
             {createResult.error.message}
