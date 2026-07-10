@@ -2,8 +2,8 @@ package reqlog_test
 
 import (
 	"context"
+	"crypto/rand"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,8 +21,7 @@ import (
 	"github.com/lorenzocamilli/lynx/pkg/scope"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+var ulidEntropy = rand.Reader
 
 //nolint:paralleltest
 func TestRequestModifier(t *testing.T) {

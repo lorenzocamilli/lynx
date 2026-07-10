@@ -49,10 +49,10 @@ type Item struct {
 }
 
 type Service struct {
-	reqMu     *sync.RWMutex
-	resMu     *sync.RWMutex
-	requests  map[ulid.ULID]Request
-	responses map[ulid.ULID]Response
+	reqMu       *sync.RWMutex
+	resMu       *sync.RWMutex
+	requests    map[ulid.ULID]Request
+	responses   map[ulid.ULID]Response
 	logger      log.Logger
 	broadcaster *sse.Broadcaster
 

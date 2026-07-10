@@ -3,9 +3,9 @@ package bolt_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/gob"
 	"errors"
-	"math/rand"
 	"regexp"
 	"testing"
 	"time"
@@ -21,8 +21,7 @@ import (
 	"github.com/lorenzocamilli/lynx/pkg/scope"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+var ulidEntropy = rand.Reader
 
 var regexpCompareOpt = cmp.Comparer(func(x, y *regexp.Regexp) bool {
 	switch {

@@ -3,11 +3,11 @@ package proxy
 import (
 	"context"
 	"crypto"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -19,8 +19,10 @@ import (
 	"github.com/lorenzocamilli/lynx/pkg/log"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy is the entropy source for request ULIDs. crypto/rand.Reader is
+// safe for concurrent use; a shared *math/rand.Rand is not, and the proxy
+// generates ULIDs from many goroutines at once.
+var ulidEntropy = rand.Reader
 
 type contextKey int
 

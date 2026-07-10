@@ -3,9 +3,9 @@ package sender
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
@@ -17,8 +17,9 @@ import (
 	"github.com/lorenzocamilli/lynx/pkg/scope"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy is the entropy source for ULIDs. crypto/rand.Reader is safe for
+// concurrent use; a shared *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 var defaultHTTPClient = &http.Client{
 	Transport: &HTTPTransport{},

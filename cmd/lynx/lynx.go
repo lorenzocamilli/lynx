@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
-	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -45,12 +44,6 @@ const (
 	// readHeaderTimeout bounds how long the server waits for request headers.
 	readHeaderTimeout = 20 * time.Second
 )
-
-//go:embed admin
-//go:embed admin/_next/static
-//go:embed admin/_next/static/chunks/pages/*.js
-//go:embed admin/_next/static/*/*.js
-var adminContent embed.FS
 
 func loadOrCreateToken(path string) (string, error) {
 	expanded, err := homedir.Expand(path)

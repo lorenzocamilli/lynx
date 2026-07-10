@@ -2,8 +2,8 @@ package intercept_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -17,8 +17,7 @@ import (
 	"github.com/lorenzocamilli/lynx/pkg/proxy/intercept"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+var ulidEntropy = rand.Reader
 
 func TestRequestModifier(t *testing.T) {
 	t.Parallel()

@@ -2,9 +2,9 @@ package proj
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
 	"regexp"
 	"sync"
 	"time"
@@ -18,8 +18,9 @@ import (
 	"github.com/lorenzocamilli/lynx/pkg/sender"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy is the entropy source for ULIDs. crypto/rand.Reader is safe for
+// concurrent use; a shared *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 type Service struct {
 	repo            Repository

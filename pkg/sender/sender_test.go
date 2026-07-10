@@ -2,9 +2,9 @@ package sender_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -22,8 +22,7 @@ import (
 	"github.com/lorenzocamilli/lynx/pkg/sender"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+var ulidEntropy = rand.Reader
 
 var exampleURL = func() *url.URL {
 	u, err := url.Parse("https://example.com/foobar")

@@ -49,7 +49,10 @@ jobs:
           key: ${{ runner.os }}-go-${{ matrix.go }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go }}-
-      - run: go test ./cmd/... ./pkg/...
+      # noembed: skip the //go:embed of the admin UI (a build artifact) so the
+      # Go tests don't require `make build-admin` first. The build job above
+      # exercises the real embed via `make build`.
+      - run: go test -tags noembed ./cmd/... ./pkg/...
   test-race:
     runs-on: ubuntu-latest
     name: Go - Race Detector
@@ -66,7 +69,7 @@ jobs:
           key: ${{ runner.os }}-go-race-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-race-
-      - run: go test -race ./cmd/... ./pkg/...
+      - run: go test -race -tags noembed ./cmd/... ./pkg/...
   govulncheck:
     runs-on: ubuntu-latest
     name: Go - Vulnerability Check
@@ -76,4 +79,4 @@ jobs:
         with:
           go-version: "1.25"
       - run: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - run: govulncheck ./cmd/... ./pkg/...
+      - run: govulncheck -tags noembed ./cmd/... ./pkg/...
