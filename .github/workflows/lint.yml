@@ -22,7 +22,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
         with:
-          go-version: "1.25"
+          # golangci-lint v1.64.8 (the last v1, matching the v1 config schema)
+          # predates Go 1.25 and can't type-check 1.25 code. The project builds on
+          # 1.24 (see the build matrix), so lint on 1.24. Removing this pin is part
+          # of the golangci-lint v2 migration tracked in PLAN.md.
+          go-version: "1.24"
       - uses: golangci/golangci-lint-action@v6
         with:
           # Pinned to the final v1 release: .golangci.yml still uses the v1 config
