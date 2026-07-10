@@ -23,6 +23,7 @@ func TestBroadcaster_SingleClient(t *testing.T) {
 	defer cancel()
 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
+	//nolint:bodyclose // closed via the defer below; bodyclose miscounts across t.Fatalf
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error connecting to SSE server: %v", err)

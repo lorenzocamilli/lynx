@@ -23,7 +23,6 @@ import (
 
 var ulidEntropy = rand.Reader
 
-//nolint:paralleltest
 func TestRequestModifier(t *testing.T) {
 	path := t.TempDir() + "bolt.db"
 	boltDB, err := bbolt.Open(path, 0o600, nil)
@@ -84,7 +83,6 @@ func TestRequestModifier(t *testing.T) {
 	})
 }
 
-//nolint:paralleltest
 func TestResponseModifier(t *testing.T) {
 	path := t.TempDir() + "bolt.db"
 	boltDB, err := bbolt.Open(path, 0o600, nil)

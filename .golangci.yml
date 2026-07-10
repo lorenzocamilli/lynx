@@ -1,3 +1,11 @@
+run:
+  # Lint the Go code without the //go:embed of the admin UI (a build artifact),
+  # so golangci-lint can compile ./cmd/lynx without running `make build-admin`
+  # first. Mirrors the `-tags noembed` used by the test/build jobs. See
+  # cmd/lynx/ui_embed.go / ui_noembed.go.
+  build-tags:
+    - noembed
+
 linters:
   presets:
     - bugs
@@ -12,42 +20,65 @@ linters:
     - test
     - unused
   disable:
+    # Opinionated / high-noise linters, intentionally off. Note some names were
+    # renamed by golangci-lint (gomnd->mnd, exhaustivestruct->exhaustruct,
+    # goerr113->err113); the removed interfacer/maligned/scopelint are dropped.
+    - contextcheck # proxy/intercept intentionally detaches ctx for async writes
+    - depguard # needs an import allow/deny policy we don't maintain
     - dupl
+    - err113
     - exhaustive
-    - exhaustivestruct
+    - exhaustruct # requires every struct field to be set — too noisy
     - gochecknoglobals
     - gochecknoinits
     - godox
-    - goerr113
-    - gomnd
-    - interfacer
-    - maligned
+    - lll # line-length is not enforced by gofmt; triggers on normal signatures
+    - mnd # magic-number detector — too noisy
     - nilnil
     - nlreturn
-    - scopelint 
+    - nonamedreturns
+    - paralleltest # opinionated test parallelism, applied inconsistently here
+    - perfsprint # micro-optimisation style (fmt -> strconv / errors.New)
+    - recvcheck # mixed value/pointer receivers are intentional (gob Marshal)
+    - tagalign
     - testpackage
+    - tparallel # see paralleltest
+    - usestdlibvars # cosmetic (e.g. "GET" -> http.MethodGet)
+    - usetesting # churny t.Context() suggestions across existing tests
     - varnamelen
     - wrapcheck
+    - wsl # highly opinionated whitespace/cuddling rules
 
 linters-settings:
   gci:
-    local-prefixes: github.com/dstotijn/hetty
+    sections:
+      - standard
+      - default
+      - prefix(github.com/lorenzocamilli/lynx)
   godot:
-    capital: true
+    # Only require the trailing period, not a leading capital: Go doc comments
+    # idiomatically start with the (possibly unexported, lower-case) identifier.
+    capital: false
   ireturn:
-    allow: "error,empty,anon,stdlib,.*(or|er)$,github.com/99designs/gqlgen/graphql.Marshaler,github.com/dstotijn/hetty/pkg/api.QueryResolver,github.com/dstotijn/hetty/pkg/filter.Expression"
-    
+    allow: "error,empty,anon,stdlib,.*(or|er)$,github.com/99designs/gqlgen/graphql.Marshaler,github.com/lorenzocamilli/lynx/pkg/api.QueryResolver,github.com/lorenzocamilli/lynx/pkg/filter.Expression"
+
 issues:
+  # Report every finding (golangci-lint otherwise caps repeats), so CI failures
+  # reflect the full picture rather than a truncated sample.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # No Go source we lint lives under admin/ (only stray files inside
+  # node_modules), so keep the linter out of it.
+  exclude-dirs:
+    - admin
   exclude-rules:
     - linters:
-      - gosec
-      # Ignore SHA1 usage.
+        - gosec
+      # SHA1 is used only to derive the certificate SubjectKeyId (RFC 5280),
+      # not as a security primitive — safe to ignore G401/G505 here.
       text: "G(401|505):"
     - linters:
-      - wsl
-      # Ignore cuddled defer statements.
-      text: "only one cuddle assignment allowed before defer statement"
-    - linters:
-      - nlreturn
-      # Ignore `break` without leading blank line.
-      text: "break with no blank line before"
+        - revive
+      # unused-parameter is noisy for interface conformance (handlers, repo
+      # methods with an unused ctx, etc.) — keep revive's other rules.
+      text: "unused-parameter"

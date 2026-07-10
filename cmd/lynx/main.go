@@ -18,7 +18,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("lynx %s\n", version)
+		fmt.Printf("lynx %s\n", version) //nolint:forbidigo // CLI prints the version to stdout
 		return
 	}
 

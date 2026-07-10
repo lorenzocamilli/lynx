@@ -38,7 +38,7 @@ func projectBucket(tx *bolt.Tx, projectID []byte) (*bolt.Bucket, error) {
 		return nil, err
 	}
 
-	b := pb.Bucket(projectID[:])
+	b := pb.Bucket(projectID)
 	if b == nil {
 		return nil, ErrProjectBucketNotFound
 	}

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,8 +86,8 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	addr := fmt.Sprintf("%s:%d", host, cfg.Port)
-	url := fmt.Sprintf("http://%s:%d", host, cfg.Port)
+	addr := net.JoinHostPort(host, strconv.Itoa(cfg.Port))
+	url := "http://" + addr
 
 	caCertFile, err := homedir.Expand("~/.lynx/lynx_cert.pem")
 	if err != nil {
@@ -258,7 +259,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	adminRouter.Path("/api/ca.crt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-x509-ca-cert")
 		w.Header().Set("Content-Disposition", `attachment; filename="lynx_ca.crt"`)
-		w.Write(caCert.Raw)
+		_, _ = w.Write(caCert.Raw)
 	})
 
 	// Settings REST endpoints.
@@ -266,7 +267,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		enc.Encode(cfg)
+		_ = enc.Encode(cfg)
 	})
 
 	adminRouter.Path("/api/settings").Methods(http.MethodPost).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -300,7 +301,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 		w.Header().Set("Content-Type", "application/json")
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
-		enc.Encode(input)
+		_ = enc.Encode(input)
 	})
 
 	adminRouter.PathPrefix("").Handler(adminHandler)
@@ -338,7 +339,6 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	//nolint:contextcheck
 	err = httpServer.Shutdown(shutdownCtx)
 	if err != nil {
 		return fmt.Errorf("failed to shutdown HTTP server: %w", err)

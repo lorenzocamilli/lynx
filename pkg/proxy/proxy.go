@@ -213,7 +213,10 @@ func (p *Proxy) handleConnect(w http.ResponseWriter) {
 	clientConnNotify := ConnNotify{tlsConn, make(chan struct{})}
 	l := &OnceAcceptListener{clientConnNotify.Conn}
 
-	err = http.Serve(l, p)
+	// One-shot listener wrapping a single already-established, hijacked MITM
+	// connection. http.Server read/write timeouts would break streamed and
+	// long-lived proxied responses, so they are intentionally omitted here.
+	err = http.Serve(l, p) //nolint:gosec // G114: timeouts unsuitable for a hijacked tunnel
 	if err != nil && !errors.Is(err, ErrAlreadyAccepted) {
 		p.logger.Errorw("Serving HTTP request failed.",
 			"error", err)

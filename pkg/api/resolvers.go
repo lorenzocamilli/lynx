@@ -521,7 +521,6 @@ func (r *mutationResolver) SendRequest(ctx context.Context, id ulid.ULID) (*Send
 
 	var sendErr *sender.SendError
 
-	//nolint:contextcheck
 	req, err := r.SenderService.SendRequest(ctx2, id)
 
 	switch {
@@ -986,7 +985,9 @@ func findRequestsFilterFromInput(input *HTTPRequestLogFilterInput) (findFilter r
 	return
 }
 
-func findSenderRequestsFilterFromInput(input *SenderRequestFilterInput) (findFilter sender.FindRequestsFilter, err error) {
+func findSenderRequestsFilterFromInput(
+	input *SenderRequestFilterInput,
+) (findFilter sender.FindRequestsFilter, err error) {
 	if input == nil {
 		return
 	}

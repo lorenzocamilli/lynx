@@ -95,6 +95,7 @@ func NewService(cfg Config) *Service {
 	return s
 }
 
+//nolint:unparam // emit is the single choke point for intercept SSE events; the type stays explicit
 func (svc *Service) emit(t sse.EventType) {
 	if svc.broadcaster != nil {
 		svc.broadcaster.Broadcast(sse.Event{Type: t})
