@@ -60,7 +60,15 @@ linters-settings:
     # idiomatically start with the (possibly unexported, lower-case) identifier.
     capital: false
   ireturn:
-    allow: "error,empty,anon,stdlib,.*(or|er)$,github.com/99designs/gqlgen/graphql.Marshaler,github.com/lorenzocamilli/lynx/pkg/api.QueryResolver,github.com/lorenzocamilli/lynx/pkg/filter.Expression"
+    allow:
+      - error
+      - empty
+      - anon
+      - stdlib
+      - .*(or|er)$
+      - github.com/99designs/gqlgen/graphql.Marshaler
+      - github.com/lorenzocamilli/lynx/pkg/api.QueryResolver
+      - github.com/lorenzocamilli/lynx/pkg/filter.Expression
 
 issues:
   # Report every finding (golangci-lint otherwise caps repeats), so CI failures
