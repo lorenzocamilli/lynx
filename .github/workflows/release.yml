@@ -18,6 +18,9 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: "1.25"
+          # Build releases with the newest 1.25.x patch so shipped binaries
+          # include current stdlib security fixes (e.g. GO-2026-5856).
+          check-latest: true
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
