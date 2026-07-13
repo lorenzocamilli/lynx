@@ -1,8 +1,8 @@
-import { TabContext, TabList, TabPanel } from "@mui/lab";
-import { Box, Paper, Tab, Typography } from "@mui/material";
+import { Box, Paper, Tab, Tabs, Typography } from "@mui/material";
 import React, { useState } from "react";
 
 import { KeyValuePairTable, KeyValuePair, KeyValuePairTableProps } from "./KeyValuePair";
+import TabPanel from "./TabPanel";
 
 import Editor from "lib/components/Editor";
 
@@ -40,37 +40,35 @@ function ResponseTabs(props: ResponseTabsProps): JSX.Element {
 
   return (
     <Box height="100%" sx={{ display: "flex", flexDirection: "column" }}>
-      <TabContext value={tabValue}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 1 }}>
-          <TabList onChange={(_, value) => setTabValue(value)}>
-            <Tab
-              value={TabValue.Body}
-              label={"Body" + (body?.length ? ` (${body.length} byte` + (body.length > 1 ? "s" : "") + ")" : "")}
-              sx={tabSx}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 1 }}>
+        <Tabs value={tabValue} onChange={(_, value) => setTabValue(value)}>
+          <Tab
+            value={TabValue.Body}
+            label={"Body" + (body?.length ? ` (${body.length} byte` + (body.length > 1 ? "s" : "") + ")" : "")}
+            sx={tabSx}
+          />
+          <Tab value={TabValue.Headers} label={"Headers" + (headersLength ? ` (${headersLength})` : "")} sx={tabSx} />
+        </Tabs>
+      </Box>
+      <Box flex="1 auto" overflow="hidden">
+        <TabPanel value={TabValue.Body} selected={tabValue} sx={{ p: 0, height: "100%" }}>
+          {hasResponse && (
+            <Editor
+              content={body || ""}
+              onChange={(value) => {
+                onBodyChange && onBodyChange(value || "");
+              }}
+              monacoOptions={{ readOnly: onBodyChange === undefined }}
+              contentType={contentType}
             />
-            <Tab value={TabValue.Headers} label={"Headers" + (headersLength ? ` (${headersLength})` : "")} sx={tabSx} />
-          </TabList>
-        </Box>
-        <Box flex="1 auto" overflow="hidden">
-          <TabPanel value={TabValue.Body} sx={{ p: 0, height: "100%" }}>
-            {hasResponse && (
-              <Editor
-                content={body || ""}
-                onChange={(value) => {
-                  onBodyChange && onBodyChange(value || "");
-                }}
-                monacoOptions={{ readOnly: onBodyChange === undefined }}
-                contentType={contentType}
-              />
-            )}
-            {!hasResponse && reqNotSent}
-          </TabPanel>
-          <TabPanel value={TabValue.Headers} sx={{ p: 0, height: "100%", overflow: "scroll" }}>
-            {hasResponse && <KeyValuePairTable items={headers} onChange={onHeaderChange} onDelete={onHeaderDelete} />}
-            {!hasResponse && reqNotSent}
-          </TabPanel>
-        </Box>
-      </TabContext>
+          )}
+          {!hasResponse && reqNotSent}
+        </TabPanel>
+        <TabPanel value={TabValue.Headers} selected={tabValue} sx={{ p: 0, height: "100%", overflow: "scroll" }}>
+          {hasResponse && <KeyValuePairTable items={headers} onChange={onHeaderChange} onDelete={onHeaderDelete} />}
+          {!hasResponse && reqNotSent}
+        </TabPanel>
+      </Box>
     </Box>
   );
 }

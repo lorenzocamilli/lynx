@@ -1,7 +1,5 @@
 import { useApolloClient } from "@apollo/client";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { TabContext, TabPanel } from "@mui/lab";
-import TabList from "@mui/lab/TabList";
 import {
   Alert,
   Box,
@@ -14,6 +12,7 @@ import {
   MenuItem,
   Snackbar,
   Tab,
+  Tabs,
   TextField,
   TextFieldProps,
   Tooltip,
@@ -25,6 +24,7 @@ import { useEffect, useState } from "react";
 import { useActiveProject } from "lib/ActiveProjectContext";
 import { authedFetch, getToken } from "lib/auth";
 import Link from "lib/components/Link";
+import TabPanel from "lib/components/TabPanel";
 import { ActiveProjectDocument, useUpdateInterceptSettingsMutation } from "lib/graphql/generated";
 import { withoutTypename } from "lib/graphql/omitTypename";
 
@@ -196,13 +196,17 @@ export default function Settings(): JSX.Element {
         Settings allow you to tweak the behaviour of Lynx&apos;s features.
       </Typography>
 
-      <TabContext value={tabValue}>
-        <TabList onChange={(_, value) => setTabValue(value)} sx={{ borderBottom: 1, borderColor: "divider" }}>
+      <Box>
+        <Tabs
+          value={tabValue}
+          onChange={(_, value) => setTabValue(value)}
+          sx={{ borderBottom: 1, borderColor: "divider" }}
+        >
           <Tab value={TabValue.Intercept} label="Intercept" sx={tabSx} />
           <Tab value={TabValue.Application} label="Application" sx={tabSx} />
-        </TabList>
+        </Tabs>
 
-        <TabPanel value={TabValue.Intercept} sx={{ px: 0 }}>
+        <TabPanel value={TabValue.Intercept} selected={tabValue} sx={{ px: 0 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
             Project settings
           </Typography>
@@ -281,7 +285,7 @@ export default function Settings(): JSX.Element {
           )}
         </TabPanel>
 
-        <TabPanel value={TabValue.Application} sx={{ px: 0 }}>
+        <TabPanel value={TabValue.Application} selected={tabValue} sx={{ px: 0 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
             Application settings
           </Typography>
@@ -402,7 +406,7 @@ export default function Settings(): JSX.Element {
             </Box>
           )}
         </TabPanel>
-      </TabContext>
+      </Box>
     </Box>
   );
 }

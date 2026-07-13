@@ -18,7 +18,6 @@
     "@emotion/styled": "^11.14.1",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^6.5.0",
-    "@mui/lab": "6.0.1-beta.36",
     "@mui/material": "^6.5.0",
     "allotment": "^1.20.5",
     "clsx": "^2.1.1",
@@ -32,15 +31,14 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.10",
-    "@graphql-codegen/cli": "2.6.1",
-    "@graphql-codegen/introspection": "2.1.1",
-    "@graphql-codegen/typescript": "2.4.3",
-    "@graphql-codegen/typescript-operations": "2.3.0",
-    "@graphql-codegen/typescript-react-apollo": "3.2.6",
+    "@eslint/eslintrc": "^3.0.0",
+    "@graphql-codegen/cli": "^7.2.0",
+    "@graphql-codegen/typescript": "^5.0.10",
+    "@graphql-codegen/typescript-operations": "^5.1.0",
+    "@graphql-codegen/typescript-react-apollo": "^4.4.2",
     "@types/node": "^20.17.28",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.5",
-    "@eslint/eslintrc": "^3.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
@@ -52,5 +50,10 @@
     "prettier": "^3.0.0",
     "typescript": "^5.8.3",
     "webpack": "^5.97.0"
+  },
+  "overrides": {
+    "@graphql-codegen/cli": {
+      "node-fetch": "^2.7.0"
+    }
   }
 }

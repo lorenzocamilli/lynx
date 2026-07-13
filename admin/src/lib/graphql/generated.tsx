@@ -5,58 +5,60 @@ export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
 export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
+export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
+export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
 const defaultOptions = {} as const;
 /** All built-in and custom scalars, mapped to their actual values */
 export type Scalars = {
-  ID: string;
-  String: string;
-  Boolean: boolean;
-  Int: number;
-  Float: number;
-  Regexp: any;
-  Time: any;
-  URL: any;
+  ID: { input: string; output: string; }
+  String: { input: string; output: string; }
+  Boolean: { input: boolean; output: boolean; }
+  Int: { input: number; output: number; }
+  Float: { input: number; output: number; }
+  Regexp: { input: any; output: any; }
+  Time: { input: any; output: any; }
+  URL: { input: any; output: any; }
 };
 
 export type CancelRequestResult = {
   __typename?: 'CancelRequestResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CancelResponseResult = {
   __typename?: 'CancelResponseResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ClearHttpRequestLogResult = {
   __typename?: 'ClearHTTPRequestLogResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type CloseProjectResult = {
   __typename?: 'CloseProjectResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type DeleteProjectResult = {
   __typename?: 'DeleteProjectResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type DeleteSenderRequestsResult = {
   __typename?: 'DeleteSenderRequestsResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type HttpHeader = {
   __typename?: 'HttpHeader';
-  key: Scalars['String'];
-  value: Scalars['String'];
+  key: Scalars['String']['output'];
+  value: Scalars['String']['output'];
 };
 
 export type HttpHeaderInput = {
-  key: Scalars['String'];
-  value: Scalars['String'];
+  key: Scalars['String']['input'];
+  value: Scalars['String']['input'];
 };
 
 export enum HttpMethod {
@@ -79,95 +81,95 @@ export enum HttpProtocol {
 
 export type HttpRequest = {
   __typename?: 'HttpRequest';
-  body?: Maybe<Scalars['String']>;
+  body?: Maybe<Scalars['String']['output']>;
   headers: Array<HttpHeader>;
-  id: Scalars['ID'];
+  id: Scalars['ID']['output'];
   method: HttpMethod;
   proto: HttpProtocol;
   response?: Maybe<HttpResponse>;
-  url: Scalars['URL'];
+  url: Scalars['URL']['output'];
 };
 
 export type HttpRequestLog = {
   __typename?: 'HttpRequestLog';
-  body?: Maybe<Scalars['String']>;
+  body?: Maybe<Scalars['String']['output']>;
   headers: Array<HttpHeader>;
-  id: Scalars['ID'];
+  id: Scalars['ID']['output'];
   method: HttpMethod;
-  proto: Scalars['String'];
+  proto: Scalars['String']['output'];
   response?: Maybe<HttpResponseLog>;
-  timestamp: Scalars['Time'];
-  url: Scalars['String'];
+  timestamp: Scalars['Time']['output'];
+  url: Scalars['String']['output'];
 };
 
 export type HttpRequestLogFilter = {
   __typename?: 'HttpRequestLogFilter';
-  onlyInScope: Scalars['Boolean'];
-  searchExpression?: Maybe<Scalars['String']>;
+  onlyInScope: Scalars['Boolean']['output'];
+  searchExpression?: Maybe<Scalars['String']['output']>;
 };
 
 export type HttpRequestLogFilterInput = {
-  onlyInScope?: InputMaybe<Scalars['Boolean']>;
-  searchExpression?: InputMaybe<Scalars['String']>;
+  onlyInScope?: InputMaybe<Scalars['Boolean']['input']>;
+  searchExpression?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type HttpResponse = {
   __typename?: 'HttpResponse';
-  body?: Maybe<Scalars['String']>;
+  body?: Maybe<Scalars['String']['output']>;
   headers: Array<HttpHeader>;
   /** Will be the same ID as its related request ID. */
-  id: Scalars['ID'];
+  id: Scalars['ID']['output'];
   proto: HttpProtocol;
-  statusCode: Scalars['Int'];
-  statusReason: Scalars['String'];
+  statusCode: Scalars['Int']['output'];
+  statusReason: Scalars['String']['output'];
 };
 
 export type HttpResponseLog = {
   __typename?: 'HttpResponseLog';
-  body?: Maybe<Scalars['String']>;
+  body?: Maybe<Scalars['String']['output']>;
   headers: Array<HttpHeader>;
   /** Will be the same ID as its related request ID. */
-  id: Scalars['ID'];
+  id: Scalars['ID']['output'];
   proto: HttpProtocol;
-  statusCode: Scalars['Int'];
-  statusReason: Scalars['String'];
+  statusCode: Scalars['Int']['output'];
+  statusReason: Scalars['String']['output'];
 };
 
 export type InterceptSettings = {
   __typename?: 'InterceptSettings';
-  requestFilter?: Maybe<Scalars['String']>;
-  requestsEnabled: Scalars['Boolean'];
-  responseFilter?: Maybe<Scalars['String']>;
-  responsesEnabled: Scalars['Boolean'];
+  requestFilter?: Maybe<Scalars['String']['output']>;
+  requestsEnabled: Scalars['Boolean']['output'];
+  responseFilter?: Maybe<Scalars['String']['output']>;
+  responsesEnabled: Scalars['Boolean']['output'];
 };
 
 export type ModifyRequestInput = {
-  body?: InputMaybe<Scalars['String']>;
+  body?: InputMaybe<Scalars['String']['input']>;
   headers?: InputMaybe<Array<HttpHeaderInput>>;
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
   method: HttpMethod;
-  modifyResponse?: InputMaybe<Scalars['Boolean']>;
+  modifyResponse?: InputMaybe<Scalars['Boolean']['input']>;
   proto: HttpProtocol;
-  url: Scalars['URL'];
+  url: Scalars['URL']['input'];
 };
 
 export type ModifyRequestResult = {
   __typename?: 'ModifyRequestResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type ModifyResponseInput = {
-  body?: InputMaybe<Scalars['String']>;
+  body?: InputMaybe<Scalars['String']['input']>;
   headers?: InputMaybe<Array<HttpHeaderInput>>;
   proto: HttpProtocol;
-  requestID: Scalars['ID'];
-  statusCode: Scalars['Int'];
-  statusReason: Scalars['String'];
+  requestID: Scalars['ID']['input'];
+  statusCode: Scalars['Int']['input'];
+  statusReason: Scalars['String']['input'];
 };
 
 export type ModifyResponseResult = {
   __typename?: 'ModifyResponseResult';
-  success: Scalars['Boolean'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type Mutation = {
@@ -195,12 +197,12 @@ export type Mutation = {
 
 
 export type MutationCancelRequestArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type MutationCancelResponseArgs = {
-  requestID: Scalars['ID'];
+  requestID: Scalars['ID']['input'];
 };
 
 
@@ -210,27 +212,27 @@ export type MutationCreateOrUpdateSenderRequestArgs = {
 
 
 export type MutationCreateProjectArgs = {
-  name: Scalars['String'];
+  name: Scalars['String']['input'];
 };
 
 
 export type MutationCreateSenderRequestFromHttpRequestLogArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type MutationDeleteHttpRequestLogArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type MutationDeleteProjectArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type MutationDeleteSenderRequestArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
@@ -245,12 +247,12 @@ export type MutationModifyResponseArgs = {
 
 
 export type MutationOpenProjectArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type MutationSendRequestArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
@@ -275,9 +277,9 @@ export type MutationUpdateInterceptSettingsArgs = {
 
 export type Project = {
   __typename?: 'Project';
-  id: Scalars['ID'];
-  isActive: Scalars['Boolean'];
-  name: Scalars['String'];
+  id: Scalars['ID']['output'];
+  isActive: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
   settings: ProjectSettings;
 };
 
@@ -292,7 +294,7 @@ export type Query = {
   httpRequestLog?: Maybe<HttpRequestLog>;
   httpRequestLogFilter?: Maybe<HttpRequestLogFilter>;
   httpRequestLogs: Array<HttpRequestLog>;
-  httpRequestLogsCount: Scalars['Int'];
+  httpRequestLogsCount: Scalars['Int']['output'];
   interceptedRequest?: Maybe<HttpRequest>;
   interceptedRequests: Array<HttpRequest>;
   projects: Array<Project>;
@@ -303,111 +305,111 @@ export type Query = {
 
 
 export type QueryHttpRequestLogArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type QueryHttpRequestLogsArgs = {
-  limit?: InputMaybe<Scalars['Int']>;
-  offset?: InputMaybe<Scalars['Int']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
 export type QueryInterceptedRequestArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type QuerySenderRequestArgs = {
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 };
 
 
 export type QuerySenderRequestsArgs = {
-  limit?: InputMaybe<Scalars['Int']>;
-  offset?: InputMaybe<Scalars['Int']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type ScopeHeader = {
   __typename?: 'ScopeHeader';
-  key?: Maybe<Scalars['Regexp']>;
-  value?: Maybe<Scalars['Regexp']>;
+  key?: Maybe<Scalars['Regexp']['output']>;
+  value?: Maybe<Scalars['Regexp']['output']>;
 };
 
 export type ScopeHeaderInput = {
-  key?: InputMaybe<Scalars['Regexp']>;
-  value?: InputMaybe<Scalars['Regexp']>;
+  key?: InputMaybe<Scalars['Regexp']['input']>;
+  value?: InputMaybe<Scalars['Regexp']['input']>;
 };
 
 export type ScopeRule = {
   __typename?: 'ScopeRule';
-  body?: Maybe<Scalars['Regexp']>;
+  body?: Maybe<Scalars['Regexp']['output']>;
   header?: Maybe<ScopeHeader>;
-  url?: Maybe<Scalars['Regexp']>;
+  url?: Maybe<Scalars['Regexp']['output']>;
 };
 
 export type ScopeRuleInput = {
-  body?: InputMaybe<Scalars['Regexp']>;
+  body?: InputMaybe<Scalars['Regexp']['input']>;
   header?: InputMaybe<ScopeHeaderInput>;
-  url?: InputMaybe<Scalars['Regexp']>;
+  url?: InputMaybe<Scalars['Regexp']['input']>;
 };
 
 export type SenderRequest = {
   __typename?: 'SenderRequest';
-  body?: Maybe<Scalars['String']>;
+  body?: Maybe<Scalars['String']['output']>;
   headers?: Maybe<Array<HttpHeader>>;
-  id: Scalars['ID'];
+  id: Scalars['ID']['output'];
   method: HttpMethod;
   proto: HttpProtocol;
   response?: Maybe<HttpResponseLog>;
-  sourceRequestLogID?: Maybe<Scalars['ID']>;
-  timestamp: Scalars['Time'];
-  url: Scalars['URL'];
+  sourceRequestLogID?: Maybe<Scalars['ID']['output']>;
+  timestamp: Scalars['Time']['output'];
+  url: Scalars['URL']['output'];
 };
 
 export type SenderRequestFilter = {
   __typename?: 'SenderRequestFilter';
-  onlyInScope: Scalars['Boolean'];
-  searchExpression?: Maybe<Scalars['String']>;
+  onlyInScope: Scalars['Boolean']['output'];
+  searchExpression?: Maybe<Scalars['String']['output']>;
 };
 
 export type SenderRequestFilterInput = {
-  onlyInScope?: InputMaybe<Scalars['Boolean']>;
-  searchExpression?: InputMaybe<Scalars['String']>;
+  onlyInScope?: InputMaybe<Scalars['Boolean']['input']>;
+  searchExpression?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type SenderRequestInput = {
-  body?: InputMaybe<Scalars['String']>;
+  body?: InputMaybe<Scalars['String']['input']>;
   headers?: InputMaybe<Array<HttpHeaderInput>>;
-  id?: InputMaybe<Scalars['ID']>;
+  id?: InputMaybe<Scalars['ID']['input']>;
   method?: InputMaybe<HttpMethod>;
   proto?: InputMaybe<HttpProtocol>;
-  url: Scalars['URL'];
+  url: Scalars['URL']['input'];
 };
 
 export type UpdateInterceptSettingsInput = {
-  requestFilter?: InputMaybe<Scalars['String']>;
-  requestsEnabled: Scalars['Boolean'];
-  responseFilter?: InputMaybe<Scalars['String']>;
-  responsesEnabled: Scalars['Boolean'];
+  requestFilter?: InputMaybe<Scalars['String']['input']>;
+  requestsEnabled: Scalars['Boolean']['input'];
+  responseFilter?: InputMaybe<Scalars['String']['input']>;
+  responsesEnabled: Scalars['Boolean']['input'];
 };
 
 export type CancelRequestMutationVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
 export type CancelRequestMutation = { __typename?: 'Mutation', cancelRequest: { __typename?: 'CancelRequestResult', success: boolean } };
 
 export type CancelResponseMutationVariables = Exact<{
-  requestID: Scalars['ID'];
+  requestID: Scalars['ID']['input'];
 }>;
 
 
 export type CancelResponseMutation = { __typename?: 'Mutation', cancelResponse: { __typename?: 'CancelResponseResult', success: boolean } };
 
 export type GetInterceptedRequestQueryVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
@@ -438,21 +440,21 @@ export type CloseProjectMutationVariables = Exact<{ [key: string]: never; }>;
 export type CloseProjectMutation = { __typename?: 'Mutation', closeProject: { __typename?: 'CloseProjectResult', success: boolean } };
 
 export type CreateProjectMutationVariables = Exact<{
-  name: Scalars['String'];
+  name: Scalars['String']['input'];
 }>;
 
 
 export type CreateProjectMutation = { __typename?: 'Mutation', createProject?: { __typename?: 'Project', id: string, name: string } | null };
 
 export type DeleteProjectMutationVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
 export type DeleteProjectMutation = { __typename?: 'Mutation', deleteProject: { __typename?: 'DeleteProjectResult', success: boolean } };
 
 export type OpenProjectMutationVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
@@ -469,14 +471,14 @@ export type ClearHttpRequestLogMutationVariables = Exact<{ [key: string]: never;
 export type ClearHttpRequestLogMutation = { __typename?: 'Mutation', clearHTTPRequestLog: { __typename?: 'ClearHTTPRequestLogResult', success: boolean } };
 
 export type DeleteHttpRequestLogMutationVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
 export type DeleteHttpRequestLogMutation = { __typename?: 'Mutation', deleteHTTPRequestLog: { __typename?: 'ClearHTTPRequestLogResult', success: boolean } };
 
 export type HttpRequestLogQueryVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
@@ -488,8 +490,8 @@ export type HttpRequestLogFilterQueryVariables = Exact<{ [key: string]: never; }
 export type HttpRequestLogFilterQuery = { __typename?: 'Query', httpRequestLogFilter?: { __typename?: 'HttpRequestLogFilter', onlyInScope: boolean, searchExpression?: string | null } | null };
 
 export type HttpRequestLogsQueryVariables = Exact<{
-  limit?: InputMaybe<Scalars['Int']>;
-  offset?: InputMaybe<Scalars['Int']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
@@ -527,36 +529,36 @@ export type CreateOrUpdateSenderRequestMutationVariables = Exact<{
 export type CreateOrUpdateSenderRequestMutation = { __typename?: 'Mutation', createOrUpdateSenderRequest: { __typename?: 'SenderRequest', id: string } };
 
 export type CreateSenderRequestFromHttpRequestLogMutationVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
 export type CreateSenderRequestFromHttpRequestLogMutation = { __typename?: 'Mutation', createSenderRequestFromHttpRequestLog: { __typename?: 'SenderRequest', id: string } };
 
 export type DeleteSenderRequestMutationVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
 export type DeleteSenderRequestMutation = { __typename?: 'Mutation', deleteSenderRequest: { __typename?: 'DeleteSenderRequestsResult', success: boolean } };
 
 export type SendRequestMutationVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
 export type SendRequestMutation = { __typename?: 'Mutation', sendRequest: { __typename?: 'SenderRequest', id: string } };
 
 export type GetSenderRequestQueryVariables = Exact<{
-  id: Scalars['ID'];
+  id: Scalars['ID']['input'];
 }>;
 
 
 export type GetSenderRequestQuery = { __typename?: 'Query', senderRequest?: { __typename?: 'SenderRequest', id: string, sourceRequestLogID?: string | null, url: any, method: HttpMethod, proto: HttpProtocol, body?: string | null, timestamp: any, headers?: Array<{ __typename?: 'HttpHeader', key: string, value: string }> | null, response?: { __typename?: 'HttpResponseLog', id: string, proto: HttpProtocol, statusCode: number, statusReason: string, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }> } | null } | null };
 
 export type GetSenderRequestsQueryVariables = Exact<{
-  limit?: InputMaybe<Scalars['Int']>;
-  offset?: InputMaybe<Scalars['Int']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
@@ -684,7 +686,7 @@ export const GetInterceptedRequestDocument = gql`
  *   },
  * });
  */
-export function useGetInterceptedRequestQuery(baseOptions: Apollo.QueryHookOptions<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>) {
+export function useGetInterceptedRequestQuery(baseOptions: Apollo.QueryHookOptions<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables> & ({ variables: GetInterceptedRequestQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
         const options = {...defaultOptions, ...baseOptions}
         return Apollo.useQuery<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>(GetInterceptedRequestDocument, options);
       }
@@ -692,8 +694,16 @@ export function useGetInterceptedRequestLazyQuery(baseOptions?: Apollo.LazyQuery
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>(GetInterceptedRequestDocument, options);
         }
+// @ts-ignore
+export function useGetInterceptedRequestSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>): Apollo.UseSuspenseQueryResult<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>;
+export function useGetInterceptedRequestSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>): Apollo.UseSuspenseQueryResult<GetInterceptedRequestQuery | undefined, GetInterceptedRequestQueryVariables>;
+export function useGetInterceptedRequestSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>(GetInterceptedRequestDocument, options);
+        }
 export type GetInterceptedRequestQueryHookResult = ReturnType<typeof useGetInterceptedRequestQuery>;
 export type GetInterceptedRequestLazyQueryHookResult = ReturnType<typeof useGetInterceptedRequestLazyQuery>;
+export type GetInterceptedRequestSuspenseQueryHookResult = ReturnType<typeof useGetInterceptedRequestSuspenseQuery>;
 export type GetInterceptedRequestQueryResult = Apollo.QueryResult<GetInterceptedRequestQuery, GetInterceptedRequestQueryVariables>;
 export const ModifyRequestDocument = gql`
     mutation ModifyRequest($request: ModifyRequestInput!) {
@@ -802,8 +812,16 @@ export function useActiveProjectLazyQuery(baseOptions?: Apollo.LazyQueryHookOpti
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<ActiveProjectQuery, ActiveProjectQueryVariables>(ActiveProjectDocument, options);
         }
+// @ts-ignore
+export function useActiveProjectSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<ActiveProjectQuery, ActiveProjectQueryVariables>): Apollo.UseSuspenseQueryResult<ActiveProjectQuery, ActiveProjectQueryVariables>;
+export function useActiveProjectSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<ActiveProjectQuery, ActiveProjectQueryVariables>): Apollo.UseSuspenseQueryResult<ActiveProjectQuery | undefined, ActiveProjectQueryVariables>;
+export function useActiveProjectSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<ActiveProjectQuery, ActiveProjectQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<ActiveProjectQuery, ActiveProjectQueryVariables>(ActiveProjectDocument, options);
+        }
 export type ActiveProjectQueryHookResult = ReturnType<typeof useActiveProjectQuery>;
 export type ActiveProjectLazyQueryHookResult = ReturnType<typeof useActiveProjectLazyQuery>;
+export type ActiveProjectSuspenseQueryHookResult = ReturnType<typeof useActiveProjectSuspenseQuery>;
 export type ActiveProjectQueryResult = Apollo.QueryResult<ActiveProjectQuery, ActiveProjectQueryVariables>;
 export const CloseProjectDocument = gql`
     mutation CloseProject {
@@ -972,8 +990,16 @@ export function useProjectsLazyQuery(baseOptions?: Apollo.LazyQueryHookOptions<P
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<ProjectsQuery, ProjectsQueryVariables>(ProjectsDocument, options);
         }
+// @ts-ignore
+export function useProjectsSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<ProjectsQuery, ProjectsQueryVariables>): Apollo.UseSuspenseQueryResult<ProjectsQuery, ProjectsQueryVariables>;
+export function useProjectsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<ProjectsQuery, ProjectsQueryVariables>): Apollo.UseSuspenseQueryResult<ProjectsQuery | undefined, ProjectsQueryVariables>;
+export function useProjectsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<ProjectsQuery, ProjectsQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<ProjectsQuery, ProjectsQueryVariables>(ProjectsDocument, options);
+        }
 export type ProjectsQueryHookResult = ReturnType<typeof useProjectsQuery>;
 export type ProjectsLazyQueryHookResult = ReturnType<typeof useProjectsLazyQuery>;
+export type ProjectsSuspenseQueryHookResult = ReturnType<typeof useProjectsSuspenseQuery>;
 export type ProjectsQueryResult = Apollo.QueryResult<ProjectsQuery, ProjectsQueryVariables>;
 export const ClearHttpRequestLogDocument = gql`
     mutation ClearHTTPRequestLog {
@@ -1083,7 +1109,7 @@ export const HttpRequestLogDocument = gql`
  *   },
  * });
  */
-export function useHttpRequestLogQuery(baseOptions: Apollo.QueryHookOptions<HttpRequestLogQuery, HttpRequestLogQueryVariables>) {
+export function useHttpRequestLogQuery(baseOptions: Apollo.QueryHookOptions<HttpRequestLogQuery, HttpRequestLogQueryVariables> & ({ variables: HttpRequestLogQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
         const options = {...defaultOptions, ...baseOptions}
         return Apollo.useQuery<HttpRequestLogQuery, HttpRequestLogQueryVariables>(HttpRequestLogDocument, options);
       }
@@ -1091,8 +1117,16 @@ export function useHttpRequestLogLazyQuery(baseOptions?: Apollo.LazyQueryHookOpt
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<HttpRequestLogQuery, HttpRequestLogQueryVariables>(HttpRequestLogDocument, options);
         }
+// @ts-ignore
+export function useHttpRequestLogSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<HttpRequestLogQuery, HttpRequestLogQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogQuery, HttpRequestLogQueryVariables>;
+export function useHttpRequestLogSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogQuery, HttpRequestLogQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogQuery | undefined, HttpRequestLogQueryVariables>;
+export function useHttpRequestLogSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogQuery, HttpRequestLogQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<HttpRequestLogQuery, HttpRequestLogQueryVariables>(HttpRequestLogDocument, options);
+        }
 export type HttpRequestLogQueryHookResult = ReturnType<typeof useHttpRequestLogQuery>;
 export type HttpRequestLogLazyQueryHookResult = ReturnType<typeof useHttpRequestLogLazyQuery>;
+export type HttpRequestLogSuspenseQueryHookResult = ReturnType<typeof useHttpRequestLogSuspenseQuery>;
 export type HttpRequestLogQueryResult = Apollo.QueryResult<HttpRequestLogQuery, HttpRequestLogQueryVariables>;
 export const HttpRequestLogFilterDocument = gql`
     query HttpRequestLogFilter {
@@ -1126,8 +1160,16 @@ export function useHttpRequestLogFilterLazyQuery(baseOptions?: Apollo.LazyQueryH
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>(HttpRequestLogFilterDocument, options);
         }
+// @ts-ignore
+export function useHttpRequestLogFilterSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>;
+export function useHttpRequestLogFilterSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogFilterQuery | undefined, HttpRequestLogFilterQueryVariables>;
+export function useHttpRequestLogFilterSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>(HttpRequestLogFilterDocument, options);
+        }
 export type HttpRequestLogFilterQueryHookResult = ReturnType<typeof useHttpRequestLogFilterQuery>;
 export type HttpRequestLogFilterLazyQueryHookResult = ReturnType<typeof useHttpRequestLogFilterLazyQuery>;
+export type HttpRequestLogFilterSuspenseQueryHookResult = ReturnType<typeof useHttpRequestLogFilterSuspenseQuery>;
 export type HttpRequestLogFilterQueryResult = Apollo.QueryResult<HttpRequestLogFilterQuery, HttpRequestLogFilterQueryVariables>;
 export const HttpRequestLogsDocument = gql`
     query HttpRequestLogs($limit: Int, $offset: Int) {
@@ -1169,8 +1211,16 @@ export function useHttpRequestLogsLazyQuery(baseOptions?: Apollo.LazyQueryHookOp
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>(HttpRequestLogsDocument, options);
         }
+// @ts-ignore
+export function useHttpRequestLogsSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>;
+export function useHttpRequestLogsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogsQuery | undefined, HttpRequestLogsQueryVariables>;
+export function useHttpRequestLogsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>(HttpRequestLogsDocument, options);
+        }
 export type HttpRequestLogsQueryHookResult = ReturnType<typeof useHttpRequestLogsQuery>;
 export type HttpRequestLogsLazyQueryHookResult = ReturnType<typeof useHttpRequestLogsLazyQuery>;
+export type HttpRequestLogsSuspenseQueryHookResult = ReturnType<typeof useHttpRequestLogsSuspenseQuery>;
 export type HttpRequestLogsQueryResult = Apollo.QueryResult<HttpRequestLogsQuery, HttpRequestLogsQueryVariables>;
 export const HttpRequestLogsCountDocument = gql`
     query HttpRequestLogsCount {
@@ -1201,8 +1251,16 @@ export function useHttpRequestLogsCountLazyQuery(baseOptions?: Apollo.LazyQueryH
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>(HttpRequestLogsCountDocument, options);
         }
+// @ts-ignore
+export function useHttpRequestLogsCountSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>;
+export function useHttpRequestLogsCountSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>): Apollo.UseSuspenseQueryResult<HttpRequestLogsCountQuery | undefined, HttpRequestLogsCountQueryVariables>;
+export function useHttpRequestLogsCountSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>(HttpRequestLogsCountDocument, options);
+        }
 export type HttpRequestLogsCountQueryHookResult = ReturnType<typeof useHttpRequestLogsCountQuery>;
 export type HttpRequestLogsCountLazyQueryHookResult = ReturnType<typeof useHttpRequestLogsCountLazyQuery>;
+export type HttpRequestLogsCountSuspenseQueryHookResult = ReturnType<typeof useHttpRequestLogsCountSuspenseQuery>;
 export type HttpRequestLogsCountQueryResult = Apollo.QueryResult<HttpRequestLogsCountQuery, HttpRequestLogsCountQueryVariables>;
 export const SetHttpRequestLogFilterDocument = gql`
     mutation SetHttpRequestLogFilter($filter: HttpRequestLogFilterInput) {
@@ -1269,8 +1327,16 @@ export function useScopeLazyQuery(baseOptions?: Apollo.LazyQueryHookOptions<Scop
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<ScopeQuery, ScopeQueryVariables>(ScopeDocument, options);
         }
+// @ts-ignore
+export function useScopeSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<ScopeQuery, ScopeQueryVariables>): Apollo.UseSuspenseQueryResult<ScopeQuery, ScopeQueryVariables>;
+export function useScopeSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<ScopeQuery, ScopeQueryVariables>): Apollo.UseSuspenseQueryResult<ScopeQuery | undefined, ScopeQueryVariables>;
+export function useScopeSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<ScopeQuery, ScopeQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<ScopeQuery, ScopeQueryVariables>(ScopeDocument, options);
+        }
 export type ScopeQueryHookResult = ReturnType<typeof useScopeQuery>;
 export type ScopeLazyQueryHookResult = ReturnType<typeof useScopeLazyQuery>;
+export type ScopeSuspenseQueryHookResult = ReturnType<typeof useScopeSuspenseQuery>;
 export type ScopeQueryResult = Apollo.QueryResult<ScopeQuery, ScopeQueryVariables>;
 export const SetScopeDocument = gql`
     mutation SetScope($scope: [ScopeRuleInput!]!) {
@@ -1482,7 +1548,7 @@ export const GetSenderRequestDocument = gql`
  *   },
  * });
  */
-export function useGetSenderRequestQuery(baseOptions: Apollo.QueryHookOptions<GetSenderRequestQuery, GetSenderRequestQueryVariables>) {
+export function useGetSenderRequestQuery(baseOptions: Apollo.QueryHookOptions<GetSenderRequestQuery, GetSenderRequestQueryVariables> & ({ variables: GetSenderRequestQueryVariables; skip?: boolean; } | { skip: boolean; }) ) {
         const options = {...defaultOptions, ...baseOptions}
         return Apollo.useQuery<GetSenderRequestQuery, GetSenderRequestQueryVariables>(GetSenderRequestDocument, options);
       }
@@ -1490,8 +1556,16 @@ export function useGetSenderRequestLazyQuery(baseOptions?: Apollo.LazyQueryHookO
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<GetSenderRequestQuery, GetSenderRequestQueryVariables>(GetSenderRequestDocument, options);
         }
+// @ts-ignore
+export function useGetSenderRequestSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<GetSenderRequestQuery, GetSenderRequestQueryVariables>): Apollo.UseSuspenseQueryResult<GetSenderRequestQuery, GetSenderRequestQueryVariables>;
+export function useGetSenderRequestSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetSenderRequestQuery, GetSenderRequestQueryVariables>): Apollo.UseSuspenseQueryResult<GetSenderRequestQuery | undefined, GetSenderRequestQueryVariables>;
+export function useGetSenderRequestSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetSenderRequestQuery, GetSenderRequestQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<GetSenderRequestQuery, GetSenderRequestQueryVariables>(GetSenderRequestDocument, options);
+        }
 export type GetSenderRequestQueryHookResult = ReturnType<typeof useGetSenderRequestQuery>;
 export type GetSenderRequestLazyQueryHookResult = ReturnType<typeof useGetSenderRequestLazyQuery>;
+export type GetSenderRequestSuspenseQueryHookResult = ReturnType<typeof useGetSenderRequestSuspenseQuery>;
 export type GetSenderRequestQueryResult = Apollo.QueryResult<GetSenderRequestQuery, GetSenderRequestQueryVariables>;
 export const GetSenderRequestsDocument = gql`
     query GetSenderRequests($limit: Int, $offset: Int) {
@@ -1533,8 +1607,16 @@ export function useGetSenderRequestsLazyQuery(baseOptions?: Apollo.LazyQueryHook
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<GetSenderRequestsQuery, GetSenderRequestsQueryVariables>(GetSenderRequestsDocument, options);
         }
+// @ts-ignore
+export function useGetSenderRequestsSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<GetSenderRequestsQuery, GetSenderRequestsQueryVariables>): Apollo.UseSuspenseQueryResult<GetSenderRequestsQuery, GetSenderRequestsQueryVariables>;
+export function useGetSenderRequestsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetSenderRequestsQuery, GetSenderRequestsQueryVariables>): Apollo.UseSuspenseQueryResult<GetSenderRequestsQuery | undefined, GetSenderRequestsQueryVariables>;
+export function useGetSenderRequestsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetSenderRequestsQuery, GetSenderRequestsQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<GetSenderRequestsQuery, GetSenderRequestsQueryVariables>(GetSenderRequestsDocument, options);
+        }
 export type GetSenderRequestsQueryHookResult = ReturnType<typeof useGetSenderRequestsQuery>;
 export type GetSenderRequestsLazyQueryHookResult = ReturnType<typeof useGetSenderRequestsLazyQuery>;
+export type GetSenderRequestsSuspenseQueryHookResult = ReturnType<typeof useGetSenderRequestsSuspenseQuery>;
 export type GetSenderRequestsQueryResult = Apollo.QueryResult<GetSenderRequestsQuery, GetSenderRequestsQueryVariables>;
 export const UpdateInterceptSettingsDocument = gql`
     mutation UpdateInterceptSettings($input: UpdateInterceptSettingsInput!) {
@@ -1609,6 +1691,14 @@ export function useGetInterceptedRequestsLazyQuery(baseOptions?: Apollo.LazyQuer
           const options = {...defaultOptions, ...baseOptions}
           return Apollo.useLazyQuery<GetInterceptedRequestsQuery, GetInterceptedRequestsQueryVariables>(GetInterceptedRequestsDocument, options);
         }
+// @ts-ignore
+export function useGetInterceptedRequestsSuspenseQuery(baseOptions?: Apollo.SuspenseQueryHookOptions<GetInterceptedRequestsQuery, GetInterceptedRequestsQueryVariables>): Apollo.UseSuspenseQueryResult<GetInterceptedRequestsQuery, GetInterceptedRequestsQueryVariables>;
+export function useGetInterceptedRequestsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetInterceptedRequestsQuery, GetInterceptedRequestsQueryVariables>): Apollo.UseSuspenseQueryResult<GetInterceptedRequestsQuery | undefined, GetInterceptedRequestsQueryVariables>;
+export function useGetInterceptedRequestsSuspenseQuery(baseOptions?: Apollo.SkipToken | Apollo.SuspenseQueryHookOptions<GetInterceptedRequestsQuery, GetInterceptedRequestsQueryVariables>) {
+          const options = baseOptions === Apollo.skipToken ? baseOptions : {...defaultOptions, ...baseOptions}
+          return Apollo.useSuspenseQuery<GetInterceptedRequestsQuery, GetInterceptedRequestsQueryVariables>(GetInterceptedRequestsDocument, options);
+        }
 export type GetInterceptedRequestsQueryHookResult = ReturnType<typeof useGetInterceptedRequestsQuery>;
 export type GetInterceptedRequestsLazyQueryHookResult = ReturnType<typeof useGetInterceptedRequestsLazyQuery>;
+export type GetInterceptedRequestsSuspenseQueryHookResult = ReturnType<typeof useGetInterceptedRequestsSuspenseQuery>;
 export type GetInterceptedRequestsQueryResult = Apollo.QueryResult<GetInterceptedRequestsQuery, GetInterceptedRequestsQueryVariables>;
