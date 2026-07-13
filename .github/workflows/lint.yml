@@ -25,6 +25,12 @@ jobs:
           go-version: "1.25"
       - uses: golangci/golangci-lint-action@v6
         with:
-          # Pinned to the final v1 release: .golangci.yml still uses the v1 config
-          # schema. Migrating the config (and bumping to v2) is tracked in PLAN.md.
+          # Pinned to the final v1 release (matches the v1 config schema).
           version: v1.64.8
+          # Build golangci-lint from source with this job's Go toolchain instead
+          # of downloading the prebuilt binary: the released v1.64.8 binary is
+          # compiled with Go 1.24 and refuses to run against a module whose go
+          # directive is 1.25 ("build Go version lower than targeted"). Migrating
+          # to golangci-lint v2 (whose binaries are built with newer Go) is
+          # tracked in PLAN.md.
+          install-mode: goinstall
