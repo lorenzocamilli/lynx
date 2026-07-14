@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
@@ -202,6 +203,12 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	adminRouter.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if noAuthPaths[r.URL.Path] {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// EventSource can't set an Authorization header, so the SSE stream
+			// authenticates via a `token` query param instead.
+			if r.URL.Path == "/api/events" && subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("token")), []byte(adminToken)) == 1 {
 				next.ServeHTTP(w, r)
 				return
 			}
