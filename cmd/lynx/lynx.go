@@ -190,10 +190,18 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
 	}).Subrouter().StrictSlash(true)
 
-	// Auth middleware: require Bearer token on all /api/* routes except /api/token.
+	// Auth middleware: require Bearer token on all /api/* routes except a small
+	// allowlist of endpoints that browsers reach via header-less requests
+	// (plain navigation / <a> download / EventSource). These expose no secrets:
+	// /api/token and /api/ca.crt serve public values, and access is already
+	// gated by the default localhost-only bind.
+	noAuthPaths := map[string]bool{
+		"/api/token":  true,
+		"/api/ca.crt": true,
+	}
 	adminRouter.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/api/token" {
+			if noAuthPaths[r.URL.Path] {
 				next.ServeHTTP(w, r)
 				return
 			}
