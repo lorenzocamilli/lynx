@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
@@ -191,65 +190,16 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
 	}).Subrouter().StrictSlash(true)
 
-	// Auth middleware: require Bearer token on all /api/* routes except a small
-	// allowlist of endpoints that browsers reach via header-less requests
-	// (plain navigation / <a> download / EventSource). These expose no secrets:
-	// /api/token and /api/ca.crt serve public values, and access is already
-	// gated by the default localhost-only bind.
-	noAuthPaths := map[string]bool{
-		"/api/token":  true,
-		"/api/ca.crt": true,
-	}
-	adminRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if noAuthPaths[r.URL.Path] {
-				next.ServeHTTP(w, r)
-				return
-			}
-			// EventSource can't set an Authorization header, so the SSE stream
-			// authenticates via a `token` query param instead.
-			if r.URL.Path == "/api/events" && subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("token")), []byte(adminToken)) == 1 {
-				next.ServeHTTP(w, r)
-				return
-			}
-			if strings.HasPrefix(r.URL.Path, "/api/") {
-				auth := r.Header.Get("Authorization")
-				if !strings.HasPrefix(auth, "Bearer ") || strings.TrimPrefix(auth, "Bearer ") != adminToken {
-					http.Error(w, "unauthorized", http.StatusUnauthorized)
-					return
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	// Auth: require a Bearer token on /api/* (with a header-less allowlist and the
+	// SSE query-param exception). Access is also gated by the localhost-only bind.
+	adminRouter.Use(newAuthMiddleware(adminToken))
 
-	// CSRF: for state-changing requests, validate Origin matches the listen address if present.
-	adminRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
-				origin := r.Header.Get("Origin")
-				if origin != "" {
-					allowed := []string{
-						fmt.Sprintf("http://%s", addr),
-						fmt.Sprintf("http://localhost:%d", cfg.Port),
-						fmt.Sprintf("http://127.0.0.1:%d", cfg.Port),
-					}
-					ok := false
-					for _, a := range allowed {
-						if origin == a {
-							ok = true
-							break
-						}
-					}
-					if !ok {
-						http.Error(w, "forbidden", http.StatusForbidden)
-						return
-					}
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	// CSRF: reject cross-origin state-changing requests to the admin API.
+	adminRouter.Use(newCSRFMiddleware([]string{
+		"http://" + addr,
+		fmt.Sprintf("http://localhost:%d", cfg.Port),
+		fmt.Sprintf("http://127.0.0.1:%d", cfg.Port),
+	}))
 
 	// Bootstrap: return the admin token (no auth required; protected by localhost-only bind).
 	adminRouter.Path("/api/token").Methods(http.MethodGet).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
