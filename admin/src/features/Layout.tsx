@@ -162,13 +162,6 @@ export function Layout({ title, page, children }: Props): JSX.Element {
     setOpen(false);
   };
 
-  const SiteTitle = styled("span")({
-    ...(title !== "" && {
-      color: theme.palette.primary.main,
-      marginRight: 4,
-    }),
-  });
-
   return (
     <Box sx={{ display: "flex", height: "100%" }}>
       <AppBar position="fixed" open={open}>
@@ -193,7 +186,12 @@ export function Layout({ title, page, children }: Props): JSX.Element {
             }}
           >
             <Typography variant="h5" noWrap sx={{ width: "100%" }}>
-              <SiteTitle>Lynx</SiteTitle>
+              <Box
+                component="span"
+                sx={title !== "" ? { color: theme.palette.primary.main, marginRight: 4 } : undefined}
+              >
+                Lynx
+              </Box>
               {title}
             </Typography>
             <Box sx={{ flexShrink: 0, pt: 0.75 }}>v{process.env.NEXT_PUBLIC_VERSION || "0.0"}</Box>

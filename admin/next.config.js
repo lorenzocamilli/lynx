@@ -8,6 +8,9 @@ const isExport = process.env.NEXT_EXPORT === "1";
 const nextConfig = {
   reactStrictMode: true,
   trailingSlash: true,
+  // This repo maintains its own (git-excluded) root CLAUDE.md — don't let
+  // `next dev` regenerate admin/AGENTS.md + admin/CLAUDE.md alongside it.
+  agentRules: false,
   ...(isExport
     ? { output: "export", distDir: "dist" }
     : {

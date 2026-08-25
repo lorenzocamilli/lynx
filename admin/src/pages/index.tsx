@@ -5,9 +5,9 @@ import LocationSearchingIcon from "@mui/icons-material/LocationSearching";
 import PauseCircleOutlineIcon from "@mui/icons-material/PauseCircleOutline";
 import SendIcon from "@mui/icons-material/Send";
 import { Box, Button, Chip, Divider, Grid, Paper, Typography } from "@mui/material";
-import Link from "next/link";
 
 import { Layout, Page } from "features/Layout";
+import Link from "lib/components/Link";
 
 interface FeatureCardProps {
   icon: React.ReactNode;
@@ -41,11 +41,16 @@ function FeatureCard({ icon, title, description, href, label }: FeatureCardProps
       <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
         {description}
       </Typography>
-      <Link href={href} passHref>
-        <Button variant="text" color="primary" size="small" component="a" sx={{ alignSelf: "flex-start", px: 0 }}>
-          {label} →
-        </Button>
-      </Link>
+      <Button
+        component={Link}
+        href={href}
+        variant="text"
+        color="primary"
+        size="small"
+        sx={{ alignSelf: "flex-start", px: 0 }}
+      >
+        {label} →
+      </Button>
     </Paper>
   );
 }
@@ -95,18 +100,17 @@ function Index(): JSX.Element {
             A self-hosted MITM proxy and HTTP toolkit for security research. Open source, runs locally, no telemetry.
           </Typography>
           <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <Link href="/projects" passHref>
-              <Button
-                variant="contained"
-                color="primary"
-                size="large"
-                component="a"
-                startIcon={<FolderOpenIcon />}
-                sx={{ fontWeight: 600 }}
-              >
-                Open a project
-              </Button>
-            </Link>
+            <Button
+              component={Link}
+              href="/projects"
+              variant="contained"
+              color="primary"
+              size="large"
+              startIcon={<FolderOpenIcon />}
+              sx={{ fontWeight: 600 }}
+            >
+              Open a project
+            </Button>
             <Button
               variant="outlined"
               color="primary"
@@ -235,18 +239,21 @@ function Index(): JSX.Element {
                   </Typography>
                 </Box>
                 {href && cta && (
-                  <Link href={href} passHref>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      size="small"
-                      component="a"
-                      {...(external ? { target: "_blank" } : {})}
-                      sx={{ whiteSpace: "nowrap", flexShrink: 0 }}
-                    >
-                      {cta}
-                    </Button>
-                  </Link>
+                  <Button
+                    // /api/ca.crt isn't a Next.js page route, so it must stay a
+                    // plain anchor rather than going through next/link's client
+                    // routing; internal steps (e.g. /projects) use the Link
+                    // wrapper instead.
+                    component={external ? "a" : Link}
+                    href={href}
+                    variant="outlined"
+                    color="primary"
+                    size="small"
+                    {...(external ? { target: "_blank" } : {})}
+                    sx={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                  >
+                    {cta}
+                  </Button>
                 )}
               </Box>
             ))}

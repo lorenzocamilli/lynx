@@ -1,10 +1,12 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { getToken } from "./auth";
 
 export function useSSE(onMessage: (type: string) => void, debounceMs = 0): void {
   const ref = useRef(onMessage);
-  ref.current = onMessage;
+  useLayoutEffect(() => {
+    ref.current = onMessage;
+  });
 
   useEffect(() => {
     let es: EventSource | null = null;

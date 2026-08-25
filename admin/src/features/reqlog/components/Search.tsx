@@ -14,7 +14,7 @@ import {
   useTheme,
 } from "@mui/material";
 import IconButton from "@mui/material/IconButton";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import {
   HttpRequestLogFilterDocument,
@@ -47,6 +47,14 @@ function Search(): JSX.Element {
 
   const filterRef = useRef<HTMLFormElement>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  // Popper's anchorEl can't read filterRef.current directly during render (the
+  // ref isn't guaranteed attached yet, and reading a ref during render isn't
+  // pure); mirror it into state once the form mounts instead. The Paper below
+  // never unmounts while open toggles, so this only needs to run once.
+  const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLFormElement | null>(null);
+  useLayoutEffect(() => {
+    setFilterAnchorEl(filterRef.current);
+  }, []);
 
   const handleSubmit = (e: React.SyntheticEvent) => {
     setFilterMutate({
@@ -120,7 +128,7 @@ function Search(): JSX.Element {
             </Tooltip>
             <Popper
               open={filterOpen}
-              anchorEl={filterRef.current}
+              anchorEl={filterAnchorEl}
               placement="bottom"
               style={{ zIndex: theme.zIndex.appBar }}
             >

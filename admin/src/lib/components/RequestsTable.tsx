@@ -9,7 +9,7 @@ import {
   TableCellProps,
   TableRowProps,
 } from "@mui/material";
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useLayoutEffect, useRef } from "react";
 
 import HttpStatusIcon from "./HttpStatusIcon";
 
@@ -131,11 +131,13 @@ export default function RequestsTable(props: Props): JSX.Element {
   // Store latest callbacks in refs so memoized rows always call the current version
   // without needing to re-render just because the parent passed a new function reference.
   const onRowClickRef = useRef(onRowClick);
-  onRowClickRef.current = onRowClick;
   const onContextMenuRef = useRef(onContextMenu);
-  onContextMenuRef.current = onContextMenu;
   const actionsCellRef = useRef(actionsCell);
-  actionsCellRef.current = actionsCell;
+  useLayoutEffect(() => {
+    onRowClickRef.current = onRowClick;
+    onContextMenuRef.current = onContextMenu;
+    actionsCellRef.current = actionsCell;
+  });
 
   const stableRowClick = useCallback((id: string) => onRowClickRef.current?.(id), []);
   const stableContextMenu = useCallback((e: React.MouseEvent, id: string) => onContextMenuRef.current?.(e, id), []);
