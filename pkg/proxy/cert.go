@@ -22,6 +22,13 @@ import (
 // MaxSerialNumber is the upper boundary that is used to create unique serial
 // numbers for the certificate. This can be any unsigned integer up to 20
 // bytes (2^(8*20)-1).
+//
+// Serials are drawn from crypto/rand over this full 160-bit range and are not
+// tracked across issuances: leaf certs are cached per-hostname by the proxy,
+// so a single run issues at most a few thousand, and the birthday-bound
+// collision probability at that scale (~2^24 possible pairs against a 2^160
+// space) is negligible — tracking issued serials would add locking and
+// unbounded memory growth to guard against a risk that doesn't materialize.
 var MaxSerialNumber = big.NewInt(0).SetBytes(bytes.Repeat([]byte{255}, 20))
 
 // CertConfig is a set of configuration values that are used to build TLS configs
@@ -84,11 +91,14 @@ func LoadOrCreateCA(caKeyFile, caCertFile string) (*x509.Certificate, *rsa.Priva
 		return nil, nil, fmt.Errorf("proxy: could not load CA key pair: %w", err)
 	}
 
-	// Create directories for files if they don't exist yet.
+	// Create directories for files if they don't exist yet. 0o700: the CA
+	// private key lives in this directory, so it must not be group/world
+	// readable or traversable, matching the 0o600 mode the key file itself
+	// gets below.
 	keyDir, _ := filepath.Split(caKeyFile)
 	if keyDir != "" {
 		if _, err := os.Stat(keyDir); os.IsNotExist(err) {
-			if err := os.MkdirAll(keyDir, 0o755); err != nil {
+			if err := os.MkdirAll(keyDir, 0o700); err != nil {
 				return nil, nil, fmt.Errorf("proxy: could not create directory for CA key: %w", err)
 			}
 		}
@@ -97,7 +107,7 @@ func LoadOrCreateCA(caKeyFile, caCertFile string) (*x509.Certificate, *rsa.Priva
 	keyDir, _ = filepath.Split(caCertFile)
 	if keyDir != "" {
 		if _, err := os.Stat(keyDir); os.IsNotExist(err) {
-			if err := os.MkdirAll(keyDir, 0o755); err != nil {
+			if err := os.MkdirAll(keyDir, 0o700); err != nil {
 				return nil, nil, fmt.Errorf("proxy: could not create directory for CA cert: %w", err)
 			}
 		}
@@ -157,8 +167,6 @@ func NewCA(name, organization string, validity time.Duration) (*x509.Certificate
 	h.Write(pkixpub)
 	keyID := h.Sum(nil)
 
-	// TODO: keep a map of used serial numbers to avoid potentially reusing a
-	// serial multiple times.
 	serial, err := rand.Int(rand.Reader, MaxSerialNumber)
 	if err != nil {
 		return nil, nil, err

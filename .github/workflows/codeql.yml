@@ -1,0 +1,48 @@
+name: CodeQL
+on: [push, pull_request]
+schedule:
+  # Weekly scan catches new CodeQL query-pack findings on code that hasn't
+  # changed, not just what a push/PR touches.
+  - cron: "23 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: go
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
+        with:
+          go-version: "1.25"
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      # noembed: skip the //go:embed of the admin UI (a build artifact) so
+      # CodeQL's Go extractor doesn't need `make build-admin` first. Mirrors
+      # the test/lint jobs in build-test.yml / lint.yml.
+      - name: Build Go (noembed)
+        if: matrix.language == 'go'
+        run: go build -tags noembed ./cmd/... ./pkg/...
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          category: "/language:${{ matrix.language }}"

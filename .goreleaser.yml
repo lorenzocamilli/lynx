@@ -54,6 +54,39 @@ dockers:
 checksum:
   name_template: "checksums.txt"
 
+sboms:
+  - artifacts: archive
+
+signs:
+  # Keyless signing via Sigstore: cosign requests a short-lived OIDC token from
+  # GitHub Actions (the release workflow grants id-token: write) and publishes
+  # the signature + certificate to the public Rekor transparency log — no
+  # signing key to generate, store, or ever leak. Signs checksums.txt rather
+  # than every artifact individually: its hashes cover every binary and
+  # archive in the release, so one signature verifies them all.
+  - cmd: cosign
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+docker_signs:
+  # Same keyless approach, applied to the ghcr.io image references directly
+  # (cosign sign, not sign-blob) so `cosign verify` works against the image
+  # itself.
+  - cmd: cosign
+    artifacts: images
+    output: true
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes"
+
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
