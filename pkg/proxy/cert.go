@@ -24,11 +24,13 @@ import (
 // bytes (2^(8*20)-1).
 //
 // Serials are drawn from crypto/rand over this full 160-bit range and are not
-// tracked across issuances: leaf certs are cached per-hostname by the proxy,
-// so a single run issues at most a few thousand, and the birthday-bound
-// collision probability at that scale (~2^24 possible pairs against a 2^160
-// space) is negligible — tracking issued serials would add locking and
-// unbounded memory growth to guard against a risk that doesn't materialize.
+// tracked across issuances. Leaf certs are NOT cached (a fresh one, with a
+// fresh serial, is minted on every TLS handshake — see CertConfig.cert) so
+// issuance volume scales with handshake count, not unique hostnames; even so,
+// the birthday-bound collision probability stays negligible at any realistic
+// session scale — e.g. ~3x10^-37 at one million issuances (n²/2^161) — so
+// tracking issued serials would add locking and unbounded memory growth to
+// guard against a risk that doesn't materialize.
 var MaxSerialNumber = big.NewInt(0).SetBytes(bytes.Repeat([]byte{255}, 20))
 
 // CertConfig is a set of configuration values that are used to build TLS configs

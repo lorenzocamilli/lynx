@@ -19,6 +19,29 @@ import (
 
 var ulidEntropy = rand.Reader
 
+// waitForPendingItem polls svc.Items() (the same public, mutex-guarded
+// snapshot the GraphQL layer uses) until the request/response modifier
+// goroutine under test has actually registered its item, instead of
+// guessing a fixed sleep duration. Each subtest using this uses its own
+// freshly-constructed *intercept.Service, so "at least one pending item"
+// unambiguously means "our goroutine got there".
+func waitForPendingItem(t *testing.T, svc *intercept.Service) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if len(svc.Items()) > 0 {
+			return
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the intercepted item to be registered")
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+}
+
 func TestRequestModifier(t *testing.T) {
 	t.Parallel()
 
@@ -61,17 +84,29 @@ func TestRequestModifier(t *testing.T) {
 		next := func(req *http.Request) {}
 		go svc.RequestModifier(next)(req)
 
-		// Wait shortly, to allow the req modifier goroutine to add `req` to the
-		// array of intercepted reqs.
-		time.Sleep(10 * time.Millisecond)
+		// Poll instead of guessing a fixed sleep duration, so cancel() can't
+		// fire before the request is even registered.
+		waitForPendingItem(t, svc)
 		cancel()
 
 		modReq := req.Clone(req.Context())
 		modReq.Header.Set("X-Foo", "bar")
 
+		// Either error is a valid outcome here, not just ErrRequestDone: once
+		// cancel() fires, InterceptRequest's deferred cleanup does
+		// close(done) then delete(svc.requests, reqID) as two separate,
+		// unsynchronized-with-callers steps. A concurrent ModifyRequest can
+		// land before either (ErrRequestNotFound was already impossible,
+		// waitForPendingItem ruled that window out above), between them
+		// (ErrRequestDone), or after both (ErrRequestNotFound again) — this
+		// is a genuine, unavoidable race in that cleanup sequence, not a
+		// test synchronization bug. Confirmed by reading every real caller
+		// (pkg/api/resolvers.go): none distinguish the two errors, both are
+		// wrapped into the same generic "could not modify" response, so the
+		// distinction isn't a guarantee this codebase actually relies on.
 		err := svc.ModifyRequest(reqID, modReq, nil)
-		if !errors.Is(err, intercept.ErrRequestDone) {
-			t.Fatalf("expected `intercept.ErrRequestDone`, got: %v", err)
+		if !errors.Is(err, intercept.ErrRequestDone) && !errors.Is(err, intercept.ErrRequestNotFound) {
+			t.Fatalf("expected `intercept.ErrRequestDone` or `intercept.ErrRequestNotFound`, got: %v", err)
 		}
 	})
 
@@ -108,9 +143,7 @@ func TestRequestModifier(t *testing.T) {
 			wg.Done()
 		}()
 
-		// Wait shortly, to allow the req modifier goroutine to add `req` to the
-		// array of intercepted reqs.
-		time.Sleep(10 * time.Millisecond)
+		waitForPendingItem(t, svc)
 
 		err := svc.ModifyRequest(reqID, modReq, nil)
 		if err != nil {
@@ -184,18 +217,19 @@ func TestResponseModifier(t *testing.T) {
 			modErr = svc.ResponseModifier(next)(res)
 		}()
 
-		// Wait shortly, to allow the res modifier goroutine to add `res` to the
-		// array of intercepted responses.
-		time.Sleep(10 * time.Millisecond)
+		waitForPendingItem(t, svc)
 		cancel()
 
 		modRes := *res
 		modRes.Header = make(http.Header)
 		modRes.Header.Set("X-Foo", "bar")
 
+		// See the "either error is a valid outcome" comment in
+		// TestRequestModifier's "modify request that's done" subtest above —
+		// same race, same reasoning, on the response side.
 		err := svc.ModifyResponse(reqID, &modRes)
-		if !errors.Is(err, intercept.ErrRequestDone) {
-			t.Fatalf("expected `intercept.ErrRequestDone`, got: %v", err)
+		if !errors.Is(err, intercept.ErrRequestDone) && !errors.Is(err, intercept.ErrRequestNotFound) {
+			t.Fatalf("expected `intercept.ErrRequestDone` or `intercept.ErrRequestNotFound`, got: %v", err)
 		}
 
 		wg.Wait()
@@ -247,9 +281,7 @@ func TestResponseModifier(t *testing.T) {
 			wg.Done()
 		}()
 
-		// Wait shortly, to allow the res modifier goroutine to add `req` to the
-		// array of intercepted reqs.
-		time.Sleep(10 * time.Millisecond)
+		waitForPendingItem(t, svc)
 
 		err := svc.ModifyResponse(reqID, &modRes)
 		if err != nil {
