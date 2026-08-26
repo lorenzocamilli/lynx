@@ -1,9 +1,11 @@
 name: CodeQL
-on: [push, pull_request]
-schedule:
-  # Weekly scan catches new CodeQL query-pack findings on code that hasn't
-  # changed, not just what a push/PR touches.
-  - cron: "23 4 * * 1"
+on:
+  push:
+  pull_request:
+  schedule:
+    # Weekly scan catches new CodeQL query-pack findings on code that hasn't
+    # changed, not just what a push/PR touches.
+    - cron: "23 4 * * 1"
 
 permissions:
   contents: read

@@ -138,12 +138,31 @@ func TestResponseModifier(t *testing.T) {
 	}
 
 	t.Run("request log was stored in repository", func(t *testing.T) {
-		// Dirty (but simple) wait for other goroutine to finish calling repository.
-		time.Sleep(10 * time.Millisecond)
+		// ResponseModifier stores the log in a background goroutine (see
+		// reqlog.go), so poll instead of guessing a fixed sleep duration —
+		// under -race the detector's overhead can push the write well past
+		// any short fixed wait, which previously caused an intermittent nil
+		// got.Response panic here.
+		var got reqlog.RequestLog
 
-		got, err := svc.FindRequestLogByID(context.Background(), reqLogID)
-		if err != nil {
-			t.Fatalf("failed to find request by id: %v", err)
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			var err error
+
+			got, err = svc.FindRequestLogByID(context.Background(), reqLogID)
+			if err != nil {
+				t.Fatalf("failed to find request by id: %v", err)
+			}
+
+			if got.Response != nil {
+				break
+			}
+
+			if time.Now().After(deadline) {
+				t.Fatal("timed out waiting for response log to be stored")
+			}
+
+			time.Sleep(5 * time.Millisecond)
 		}
 
 		t.Run("ran next modifier first, before calling repository", func(t *testing.T) {
