@@ -170,6 +170,8 @@ func parseResponseLog(resLog reqlog.ResponseLog) (HTTPResponseLog, error) {
 	httpResLog := HTTPResponseLog{
 		Proto:      proto,
 		StatusCode: resLog.StatusCode,
+		DurationMs: int(resLog.Duration.Milliseconds()),
+		Size:       int(resLog.Size),
 	}
 	statusReasonSubs := strings.SplitN(resLog.Status, " ", 2)
 

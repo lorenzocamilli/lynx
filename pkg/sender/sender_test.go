@@ -291,6 +291,7 @@ func TestSendRequest(t *testing.T) {
 			"Foobar":         []string{"baz"},
 		},
 		Body: []byte("baz"),
+		Size: 3,
 	}
 
 	got, err := svc.SendRequest(context.Background(), reqID)
@@ -298,7 +299,11 @@ func TestSendRequest(t *testing.T) {
 		t.Fatalf("unexpected error sending request: %v", err)
 	}
 
-	diff := cmp.Diff(exp, got.Response, cmpopts.IgnoreFields(sender.Request{}, "ID"))
+	if got.Response != nil && got.Response.Duration <= 0 {
+		t.Errorf("expected response duration to be recorded, got %v", got.Response.Duration)
+	}
+
+	diff := cmp.Diff(exp, got.Response, cmpopts.IgnoreFields(sender.Request{}, "ID"), cmpopts.IgnoreFields(reqlog.ResponseLog{}, "Duration"))
 	if diff != "" {
 		t.Fatalf("request not equal (-exp, +got):\n%v", diff)
 	}

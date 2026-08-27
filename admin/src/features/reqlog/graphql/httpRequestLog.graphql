@@ -18,6 +18,8 @@ query HttpRequestLog($id: ID!) {
       }
       statusCode
       statusReason
+      durationMs
+      size
       body
     }
   }

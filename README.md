@@ -58,6 +58,11 @@ All data is stored under `~/.lynx/`:
 | `~/.lynx/lynx.db` | BoltDB database |
 | `~/.lynx/config.yaml` | Application config |
 
+Captured traffic (headers and bodies) is stored in `lynx.db` **unencrypted,
+by default verbatim**. Use the "Redact headers" setting to mask specific
+headers before storage. See [SECURITY.md](SECURITY.md) for the full threat
+model.
+
 ## License
 
 MIT

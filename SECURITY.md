@@ -70,6 +70,10 @@ latest minor release line, following semver.
   return sensitive data (tokens, PII) and don't need it retained verbatim,
   configure redaction. There is currently no at-rest encryption for the
   database file itself; treat `~/.lynx/` with the same care as the CA key.
+  Each request/response body is capped at 10 MB (`maxBodyBytes` in
+  `config.yaml`) before storage — this is a memory/DB-growth bound, not a
+  security control; bodies under the cap are still stored verbatim unless
+  redacted.
 
 ### Out of scope
 

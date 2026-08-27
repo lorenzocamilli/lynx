@@ -392,6 +392,18 @@ export default function Settings(): JSX.Element {
                 variant="outlined"
                 fullWidth
               />
+              <Alert severity="info" sx={{ mt: -1 }}>
+                Captured traffic (headers and bodies) is stored unencrypted in <code>~/.lynx/lynx.db</code>. Redact
+                headers above, or see{" "}
+                <MaterialLink
+                  href="https://github.com/lorenzocamilli/lynx/blob/main/SECURITY.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  SECURITY.md
+                </MaterialLink>{" "}
+                for the full data-handling posture.
+              </Alert>
               <Box>
                 <Button
                   variant="contained"

@@ -111,9 +111,11 @@ type ComplexityRoot struct {
 
 	HTTPResponseLog struct {
 		Body         func(childComplexity int) int
+		DurationMs   func(childComplexity int) int
 		Headers      func(childComplexity int) int
 		ID           func(childComplexity int) int
 		Proto        func(childComplexity int) int
+		Size         func(childComplexity int) int
 		StatusCode   func(childComplexity int) int
 		StatusReason func(childComplexity int) int
 	}
@@ -483,6 +485,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.HTTPResponseLog.Body(childComplexity), true
 
+	case "HttpResponseLog.durationMs":
+		if e.complexity.HTTPResponseLog.DurationMs == nil {
+			break
+		}
+
+		return e.complexity.HTTPResponseLog.DurationMs(childComplexity), true
+
 	case "HttpResponseLog.headers":
 		if e.complexity.HTTPResponseLog.Headers == nil {
 			break
@@ -503,6 +512,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.HTTPResponseLog.Proto(childComplexity), true
+
+	case "HttpResponseLog.size":
+		if e.complexity.HTTPResponseLog.Size == nil {
+			break
+		}
+
+		return e.complexity.HTTPResponseLog.Size(childComplexity), true
 
 	case "HttpResponseLog.statusCode":
 		if e.complexity.HTTPResponseLog.StatusCode == nil {
@@ -1107,6 +1123,15 @@ type HttpResponseLog {
   statusReason: String!
   body: String
   headers: [HttpHeader!]!
+  """
+  Upstream round-trip time in milliseconds. Zero for responses logged before
+  this field was introduced.
+  """
+  durationMs: Int!
+  """
+  Size of the (decompressed) response body in bytes.
+  """
+  size: Int!
 }
 
 type HttpHeader {
@@ -3007,6 +3032,76 @@ func (ec *executionContext) _HttpResponseLog_headers(ctx context.Context, field 
 	res := resTmp.([]HTTPHeader)
 	fc.Result = res
 	return ec.marshalNHttpHeader2ᚕgithubᚗcomᚋdstotijnᚋhettyᚋpkgᚋapiᚐHTTPHeaderᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _HttpResponseLog_durationMs(ctx context.Context, field graphql.CollectedField, obj *HTTPResponseLog) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "HttpResponseLog",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.DurationMs, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _HttpResponseLog_size(ctx context.Context, field graphql.CollectedField, obj *HTTPResponseLog) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "HttpResponseLog",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Size, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _InterceptSettings_requestsEnabled(ctx context.Context, field graphql.CollectedField, obj *InterceptSettings) (ret graphql.Marshaler) {
@@ -7110,6 +7205,16 @@ func (ec *executionContext) _HttpResponseLog(ctx context.Context, sel ast.Select
 			out.Values[i] = ec._HttpResponseLog_body(ctx, field, obj)
 		case "headers":
 			out.Values[i] = ec._HttpResponseLog_headers(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "durationMs":
+			out.Values[i] = ec._HttpResponseLog_durationMs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "size":
+			out.Values[i] = ec._HttpResponseLog_size(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}

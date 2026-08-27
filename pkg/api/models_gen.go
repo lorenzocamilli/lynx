@@ -95,6 +95,11 @@ type HTTPResponseLog struct {
 	StatusReason string       `json:"statusReason"`
 	Body         *string      `json:"body"`
 	Headers      []HTTPHeader `json:"headers"`
+	// Upstream round-trip time in milliseconds. Zero for responses logged before
+	// this field was introduced.
+	DurationMs int `json:"durationMs"`
+	// Size of the (decompressed) response body in bytes.
+	Size int `json:"size"`
 }
 
 type InterceptSettings struct {

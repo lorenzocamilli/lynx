@@ -19,6 +19,15 @@ type HttpResponseLog {
   statusReason: String!
   body: String
   headers: [HttpHeader!]!
+  """
+  Upstream round-trip time in milliseconds. Zero for responses logged before
+  this field was introduced.
+  """
+  durationMs: Int!
+  """
+  Size of the (decompressed) response body in bytes.
+  """
+  size: Int!
 }
 
 type HttpHeader {

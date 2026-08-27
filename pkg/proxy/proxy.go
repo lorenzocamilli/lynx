@@ -26,7 +26,11 @@ var ulidEntropy = rand.Reader
 
 type contextKey int
 
-const reqIDKey contextKey = 0
+const (
+	reqIDKey contextKey = iota
+	reqStartKey
+	reqDurationKey
+)
 
 // Proxy implements http.Handler and offers MITM behaviour for modifying
 // HTTP requests and responses.
@@ -149,9 +153,21 @@ func (p *Proxy) modifyRequest(r *http.Request) {
 	}
 
 	fn(r)
+
+	// Stamped after the request modifier chain (which may block for a long
+	// time on intercept) so the measured duration reflects only the actual
+	// upstream round trip, not time spent paused in the UI.
+	*r = *r.WithContext(WithRequestStart(r.Context(), time.Now()))
 }
 
 func (p *Proxy) modifyResponse(res *http.Response) error {
+	// Measured before the response modifier chain (which may itself block on
+	// intercept) so the stored duration reflects only the upstream round trip.
+	if start, ok := RequestStartFromContext(res.Request.Context()); ok {
+		duration := time.Since(start)
+		*res.Request = *res.Request.WithContext(WithRequestDuration(res.Request.Context(), duration))
+	}
+
 	fn := nopResModifier
 
 	// TODO: Make decompressing gzip formatted response bodies a configurable project setting.
@@ -173,6 +189,29 @@ func WithRequestID(ctx context.Context, id ulid.ULID) context.Context {
 func RequestIDFromContext(ctx context.Context) (ulid.ULID, bool) {
 	id, ok := ctx.Value(reqIDKey).(ulid.ULID)
 	return id, ok
+}
+
+func WithRequestStart(ctx context.Context, t time.Time) context.Context {
+	return context.WithValue(ctx, reqStartKey, t)
+}
+
+func RequestStartFromContext(ctx context.Context) (time.Time, bool) {
+	t, ok := ctx.Value(reqStartKey).(time.Time)
+	return t, ok
+}
+
+func WithRequestDuration(ctx context.Context, d time.Duration) context.Context {
+	return context.WithValue(ctx, reqDurationKey, d)
+}
+
+// RequestDurationFromContext returns the upstream round-trip duration, i.e.
+// the time between the end of the request modifier chain (after any
+// intercept block) and the start of the response modifier chain (before any
+// intercept block on the response). Only set for requests that went through
+// Proxy.modifyResponse.
+func RequestDurationFromContext(ctx context.Context) (time.Duration, bool) {
+	d, ok := ctx.Value(reqDurationKey).(time.Duration)
+	return d, ok
 }
 
 // handleConnect hijacks the incoming HTTP request and sets up an HTTP tunnel.

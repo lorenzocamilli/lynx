@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/oklog/ulid"
 
@@ -50,6 +51,15 @@ type ResponseLog struct {
 	Status     string
 	Header     http.Header
 	Body       []byte
+
+	// Duration is the upstream round-trip time: the interval between the
+	// request being sent and the response arriving, excluding any time spent
+	// blocked in the intercept UI. Zero when unknown (e.g. decoded from
+	// storage predating this field).
+	Duration time.Duration
+	// Size is the length in bytes of Body, as read off the wire (i.e. after
+	// gunzip, since Body always holds the decompressed content).
+	Size int64
 }
 
 type Service struct {
@@ -133,11 +143,13 @@ func (svc *Service) DeleteRequest(ctx context.Context, projectID, id ulid.ULID) 
 	return svc.repo.DeleteRequestLog(ctx, projectID, id)
 }
 
-func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *http.Response) error {
+func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *http.Response, duration time.Duration) error {
 	resLog, err := ParseHTTPResponse(res)
 	if err != nil {
 		return err
 	}
+
+	resLog.Duration = duration
 
 	// resLog.Header is already a clone (see ParseHTTPResponse), so redacting
 	// in place only affects the stored log, not the forwarded response.
@@ -258,6 +270,8 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 			return errors.New("reqlog: request is missing ID")
 		}
 
+		duration, _ := proxy.RequestDurationFromContext(res.Request.Context())
+
 		clone := *res
 
 		if res.Body != nil {
@@ -276,7 +290,7 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 		}
 
 		go func() {
-			if err := svc.storeResponse(context.Background(), reqLogID, &clone); err != nil {
+			if err := svc.storeResponse(context.Background(), reqLogID, &clone, duration); err != nil {
 				svc.logger.Errorw("Failed to store response log.",
 					"error", err)
 			} else {
@@ -340,5 +354,6 @@ func ParseHTTPResponse(res *http.Response) (ResponseLog, error) {
 		Status:     res.Status,
 		Header:     header,
 		Body:       body,
+		Size:       int64(len(body)),
 	}, nil
 }

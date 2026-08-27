@@ -16,6 +16,8 @@ query GetSenderRequest($id: ID!) {
       proto
       statusCode
       statusReason
+      durationMs
+      size
       body
       headers {
         key

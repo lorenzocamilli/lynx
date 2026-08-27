@@ -7,6 +7,8 @@ query HttpRequestLogs($limit: Int, $offset: Int) {
     response {
       statusCode
       statusReason
+      durationMs
+      size
     }
   }
 }

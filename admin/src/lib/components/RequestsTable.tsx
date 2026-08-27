@@ -48,6 +48,20 @@ const StatusTableCell = styled(TableCell)<TableCellProps>(() => ({
   width: "100px",
 }));
 
+const TimeTableCell = styled(TableCell)<TableCellProps>(({ theme }) => ({
+  ...baseCellStyle,
+  width: "80px",
+  color: theme.palette.text.secondary,
+  fontVariantNumeric: "tabular-nums",
+}));
+
+const SizeTableCell = styled(TableCell)<TableCellProps>(({ theme }) => ({
+  ...baseCellStyle,
+  width: "80px",
+  color: theme.palette.text.secondary,
+  fontVariantNumeric: "tabular-nums",
+}));
+
 const RequestTableRow = styled(TableRow)<TableRowProps>(() => ({
   "&:hover": {
     cursor: "pointer",
@@ -65,6 +79,10 @@ interface HttpResponse {
   statusCode: number;
   statusReason: string;
   body?: string;
+  // Absent for response shapes that don't carry timing/size info, e.g. the
+  // in-flight intercept response.
+  durationMs?: number;
+  size?: number;
 }
 
 interface Props {
@@ -120,6 +138,8 @@ const RequestRow = React.memo(function RequestRow({
       <StatusTableCell>
         {response && <Status code={response.statusCode} reason={response.statusReason} />}
       </StatusTableCell>
+      <TimeTableCell>{response?.durationMs !== undefined && formatDuration(response.durationMs)}</TimeTableCell>
+      <SizeTableCell>{response?.size !== undefined && formatSize(response.size)}</SizeTableCell>
       {actionsCell && actionsCell(id)}
     </RequestTableRow>
   );
@@ -155,6 +175,8 @@ export default function RequestsTable(props: Props): JSX.Element {
             <TableCell>Origin</TableCell>
             <TableCell>Path</TableCell>
             <TableCell>Status</TableCell>
+            <TableCell>Time</TableCell>
+            <TableCell>Size</TableCell>
             {actionsCell && <TableCell padding="checkbox"></TableCell>}
           </TableRow>
         </TableHead>
@@ -192,4 +214,15 @@ function Status({ code, reason }: { code: number; reason: string }): JSX.Element
       </code>
     </div>
   );
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms} ms`;
+  return `${(ms / 1000).toFixed(1)} s`;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

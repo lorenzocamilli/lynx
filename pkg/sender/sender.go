@@ -216,16 +216,22 @@ func parseHTTPRequest(ctx context.Context, req Request) (*http.Request, error) {
 }
 
 func (svc *Service) sendHTTPRequest(httpReq *http.Request) (reqlog.ResponseLog, error) {
+	start := time.Now()
+
 	res, err := svc.httpClient.Do(httpReq)
 	if err != nil {
 		return reqlog.ResponseLog{}, &SendError{err}
 	}
 	defer res.Body.Close()
 
+	duration := time.Since(start)
+
 	resLog, err := reqlog.ParseHTTPResponse(res)
 	if err != nil {
 		return reqlog.ResponseLog{}, fmt.Errorf("failed to parse http response: %w", err)
 	}
+
+	resLog.Duration = duration
 
 	return resLog, err
 }

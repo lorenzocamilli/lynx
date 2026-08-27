@@ -127,10 +127,17 @@ export type HttpResponse = {
 export type HttpResponseLog = {
   __typename?: 'HttpResponseLog';
   body?: Maybe<Scalars['String']['output']>;
+  /**
+   * Upstream round-trip time in milliseconds. Zero for responses logged before
+   * this field was introduced.
+   */
+  durationMs: Scalars['Int']['output'];
   headers: Array<HttpHeader>;
   /** Will be the same ID as its related request ID. */
   id: Scalars['ID']['output'];
   proto: HttpProtocol;
+  /** Size of the (decompressed) response body in bytes. */
+  size: Scalars['Int']['output'];
   statusCode: Scalars['Int']['output'];
   statusReason: Scalars['String']['output'];
 };
@@ -482,7 +489,7 @@ export type HttpRequestLogQueryVariables = Exact<{
 }>;
 
 
-export type HttpRequestLogQuery = { __typename?: 'Query', httpRequestLog?: { __typename?: 'HttpRequestLog', id: string, method: HttpMethod, url: string, proto: string, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }>, response?: { __typename?: 'HttpResponseLog', id: string, proto: HttpProtocol, statusCode: number, statusReason: string, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }> } | null } | null };
+export type HttpRequestLogQuery = { __typename?: 'Query', httpRequestLog?: { __typename?: 'HttpRequestLog', id: string, method: HttpMethod, url: string, proto: string, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }>, response?: { __typename?: 'HttpResponseLog', id: string, proto: HttpProtocol, statusCode: number, statusReason: string, durationMs: number, size: number, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }> } | null } | null };
 
 export type HttpRequestLogFilterQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -495,7 +502,7 @@ export type HttpRequestLogsQueryVariables = Exact<{
 }>;
 
 
-export type HttpRequestLogsQuery = { __typename?: 'Query', httpRequestLogs: Array<{ __typename?: 'HttpRequestLog', id: string, method: HttpMethod, url: string, timestamp: any, response?: { __typename?: 'HttpResponseLog', statusCode: number, statusReason: string } | null }> };
+export type HttpRequestLogsQuery = { __typename?: 'Query', httpRequestLogs: Array<{ __typename?: 'HttpRequestLog', id: string, method: HttpMethod, url: string, timestamp: any, response?: { __typename?: 'HttpResponseLog', statusCode: number, statusReason: string, durationMs: number, size: number } | null }> };
 
 export type HttpRequestLogsCountQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -554,7 +561,7 @@ export type GetSenderRequestQueryVariables = Exact<{
 }>;
 
 
-export type GetSenderRequestQuery = { __typename?: 'Query', senderRequest?: { __typename?: 'SenderRequest', id: string, sourceRequestLogID?: string | null, url: any, method: HttpMethod, proto: HttpProtocol, body?: string | null, timestamp: any, headers?: Array<{ __typename?: 'HttpHeader', key: string, value: string }> | null, response?: { __typename?: 'HttpResponseLog', id: string, proto: HttpProtocol, statusCode: number, statusReason: string, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }> } | null } | null };
+export type GetSenderRequestQuery = { __typename?: 'Query', senderRequest?: { __typename?: 'SenderRequest', id: string, sourceRequestLogID?: string | null, url: any, method: HttpMethod, proto: HttpProtocol, body?: string | null, timestamp: any, headers?: Array<{ __typename?: 'HttpHeader', key: string, value: string }> | null, response?: { __typename?: 'HttpResponseLog', id: string, proto: HttpProtocol, statusCode: number, statusReason: string, durationMs: number, size: number, body?: string | null, headers: Array<{ __typename?: 'HttpHeader', key: string, value: string }> } | null } | null };
 
 export type GetSenderRequestsQueryVariables = Exact<{
   limit?: InputMaybe<Scalars['Int']['input']>;
@@ -562,7 +569,7 @@ export type GetSenderRequestsQueryVariables = Exact<{
 }>;
 
 
-export type GetSenderRequestsQuery = { __typename?: 'Query', senderRequests: Array<{ __typename?: 'SenderRequest', id: string, url: any, method: HttpMethod, response?: { __typename?: 'HttpResponseLog', id: string, statusCode: number, statusReason: string } | null }> };
+export type GetSenderRequestsQuery = { __typename?: 'Query', senderRequests: Array<{ __typename?: 'SenderRequest', id: string, url: any, method: HttpMethod, response?: { __typename?: 'HttpResponseLog', id: string, statusCode: number, statusReason: string, durationMs: number, size: number } | null }> };
 
 export type UpdateInterceptSettingsMutationVariables = Exact<{
   input: UpdateInterceptSettingsInput;
@@ -1087,6 +1094,8 @@ export const HttpRequestLogDocument = gql`
       }
       statusCode
       statusReason
+      durationMs
+      size
       body
     }
   }
@@ -1181,6 +1190,8 @@ export const HttpRequestLogsDocument = gql`
     response {
       statusCode
       statusReason
+      durationMs
+      size
     }
   }
 }
@@ -1522,6 +1533,8 @@ export const GetSenderRequestDocument = gql`
       proto
       statusCode
       statusReason
+      durationMs
+      size
       body
       headers {
         key
@@ -1577,6 +1590,8 @@ export const GetSenderRequestsDocument = gql`
       id
       statusCode
       statusReason
+      durationMs
+      size
     }
   }
 }
