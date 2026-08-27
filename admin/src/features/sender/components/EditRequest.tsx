@@ -281,6 +281,7 @@ function EditRequest(): JSX.Element {
               Request
             </Typography>
             <RequestTabs
+              hideQueryParams
               queryParams={queryParams}
               headers={headers}
               body={body}
