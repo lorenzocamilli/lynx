@@ -224,10 +224,9 @@ func TestCertConfigLeafCertificates(t *testing.T) {
 	// Documents actual (not assumed) behavior: cert.go has no cache, so a
 	// repeat handshake to an already-issued host mints a brand-new
 	// certificate rather than reusing one. See the MaxSerialNumber comment
-	// in cert.go and the 2026-08-26 CLAUDE.md correction — a prior comment
-	// here (and in CLAUDE.md's architecture doc) incorrectly assumed
-	// hostname-keyed caching existed. If caching is added later, this test
-	// should change along with those comments, not be deleted silently.
+	// in cert.go — a prior comment here incorrectly assumed hostname-keyed
+	// caching existed. If caching is added later, this test should change
+	// along with that comment, not be deleted silently.
 	t.Run("is not cached: repeat handshakes for the same host mint distinct certificates", func(t *testing.T) {
 		first, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{ServerName: "repeat.example.com"})
 		if err != nil {

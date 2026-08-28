@@ -3,6 +3,9 @@ export NEXT_TELEMETRY_DISABLED = 1
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo dev)
 GO_LDFLAGS := -s -w -X main.version=$(VERSION)
+# Admin UI version badge (Layout.tsx) falls back to "0.0" when unset, since
+# Next.js only inlines NEXT_PUBLIC_* vars that are present at build time.
+export NEXT_PUBLIC_VERSION = $(VERSION)
 
 .PHONY: build
 build: build-admin

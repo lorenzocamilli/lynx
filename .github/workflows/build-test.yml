@@ -52,7 +52,17 @@ jobs:
       # noembed: skip the //go:embed of the admin UI (a build artifact) so the
       # Go tests don't require `make build-admin` first. The build job above
       # exercises the real embed via `make build`.
-      - run: go test -tags noembed ./cmd/... ./pkg/...
+      - run: go test -tags noembed -coverprofile=coverage.out -covermode=atomic ./cmd/... ./pkg/...
+      - run: go tool cover -func=coverage.out
+      # Coverage is only meaningfully comparable across a single Go version;
+      # upload once (matrix.go == "1.25", the project's primary version) to
+      # avoid two profiles silently overwriting each other under the same
+      # artifact name.
+      - if: matrix.go == '1.25'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-report
+          path: coverage.out
   test-race:
     runs-on: ubuntu-latest
     name: Go - Race Detector

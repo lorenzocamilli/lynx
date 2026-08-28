@@ -130,8 +130,7 @@ func TestServeHTTP_RequestIDAvailableToModifiers(t *testing.T) {
 // registration loop in proxy.go alone (fn := reqModifiers[i](fn) iterated in
 // reverse builds an onion, and reasoning about which side of a middleware's
 // own next(req) call its side effect sits on is exactly the kind of thing
-// that should be verified, not assumed — see the 2026-08-26 CLAUDE.md
-// correction to a similar assumption about cert caching).
+// that should be verified, not assumed).
 func TestModifierChainOrder(t *testing.T) {
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
