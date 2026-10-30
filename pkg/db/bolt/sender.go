@@ -9,6 +9,7 @@ import (
 
 	"github.com/oklog/ulid"
 	bolt "go.etcd.io/bbolt"
+	bolterrors "go.etcd.io/bbolt/errors"
 
 	"github.com/lorenzocamilli/lynx/pkg/scope"
 	"github.com/lorenzocamilli/lynx/pkg/sender"
@@ -170,17 +171,17 @@ func (db *Database) DeleteSenderRequest(ctx context.Context, projectID, id ulid.
 
 func (db *Database) DeleteSenderRequests(ctx context.Context, projectID ulid.ULID) error {
 	err := db.bolt.Update(func(tx *bolt.Tx) error {
-		senderReqsBucket, err := senderReqsBucket(tx, projectID)
+		pb, err := projectBucket(tx, projectID[:])
 		if err != nil {
-			return fmt.Errorf("failed to get sender requests bucket: %w", err)
+			return fmt.Errorf("failed to get project bucket: %w", err)
 		}
 
-		err = senderReqsBucket.DeleteBucket(senderReqsBucketName)
-		if err != nil {
+		if err := pb.DeleteBucket(senderReqsBucketName); err != nil && !errors.Is(err, bolterrors.ErrBucketNotFound) {
 			return fmt.Errorf("failed to delete sender requests bucket: %w", err)
 		}
 
-		return nil
+		_, err = pb.CreateBucket(senderReqsBucketName)
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("bolt: failed to commit transaction: %w", err)

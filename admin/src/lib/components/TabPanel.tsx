@@ -1,5 +1,4 @@
 import { Box, BoxProps } from "@mui/material";
-import React from "react";
 
 interface TabPanelProps extends Omit<BoxProps, "hidden"> {
   // The tab this panel belongs to.

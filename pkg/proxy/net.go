@@ -3,16 +3,18 @@ package proxy
 import (
 	"errors"
 	"net"
+	"sync"
 )
 
 var ErrAlreadyAccepted = errors.New("listener already accepted")
 
-// OnceListener implements net.Listener.
+// OnceAcceptListener implements net.Listener.
 //
 // Accepts a connection once and returns an error on subsequent
 // attempts.
 type OnceAcceptListener struct {
-	c net.Conn
+	c    net.Conn
+	addr net.Addr
 }
 
 func (l *OnceAcceptListener) Accept() (net.Conn, error) {
@@ -21,6 +23,7 @@ func (l *OnceAcceptListener) Accept() (net.Conn, error) {
 	}
 
 	c := l.c
+	l.addr = c.LocalAddr()
 	l.c = nil
 
 	return c, nil
@@ -31,7 +34,10 @@ func (l *OnceAcceptListener) Close() error {
 }
 
 func (l *OnceAcceptListener) Addr() net.Addr {
-	return l.c.LocalAddr()
+	if l.c != nil {
+		return l.c.LocalAddr()
+	}
+	return l.addr
 }
 
 // ConnNotify embeds net.Conn and adds a channel field for notifying
@@ -39,9 +45,11 @@ func (l *OnceAcceptListener) Addr() net.Addr {
 type ConnNotify struct {
 	net.Conn
 	closed chan struct{}
+	once   sync.Once
 }
 
-func (c *ConnNotify) Close() {
-	c.Conn.Close()
-	c.closed <- struct{}{}
+func (c *ConnNotify) Close() error {
+	err := c.Conn.Close()
+	c.once.Do(func() { close(c.closed) })
+	return err
 }

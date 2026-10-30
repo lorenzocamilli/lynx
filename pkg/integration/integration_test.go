@@ -8,13 +8,18 @@
 package integration_test
 
 import (
+	"compress/gzip"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/oklog/ulid"
 
 	"github.com/lorenzocamilli/lynx/pkg/db/bolt"
 	"github.com/lorenzocamilli/lynx/pkg/proj"
@@ -235,5 +240,70 @@ func TestEndToEndRequestFlow(t *testing.T) {
 
 	if string(sent.Response.Body) != originBody {
 		t.Errorf("Sender response Body = %q, want %q", sent.Response.Body, originBody)
+	}
+}
+
+// A storage cap must never become a wire-traffic cap, including after gzip
+// decoding and when the original HTTP Content-Length exceeds the log limit.
+func TestLoggingLimitPreservesProxiedTraffic(t *testing.T) {
+	for _, compressed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("gzip=%t", compressed), func(t *testing.T) {
+			const payload = "body longer than the logging limit"
+			origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				if err != nil || string(body) != payload {
+					t.Errorf("origin received %q, %v", body, err)
+				}
+				if compressed {
+					w.Header().Set("Content-Encoding", "gzip")
+					writer := gzip.NewWriter(w)
+					_, _ = io.WriteString(writer, payload)
+					_ = writer.Close()
+				} else {
+					_, _ = io.WriteString(w, payload)
+				}
+			}))
+			defer origin.Close()
+			db, err := bolt.OpenDatabase(filepath.Join(t.TempDir(), "lynx.db"), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			ctx := context.Background()
+			projectID := ulid.ULID{1}
+			if err := db.UpsertProject(ctx, proj.Project{ID: projectID}); err != nil {
+				t.Fatal(err)
+			}
+			logs := reqlog.NewService(reqlog.Config{Repository: db, ActiveProjectID: projectID, MaxBodyBytes: 4})
+			cert, key, err := proxy.NewCA("Test CA", "Test", time.Hour)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := proxy.NewProxy(proxy.Config{CACert: cert, CAKey: key})
+			if err != nil {
+				t.Fatal(err)
+			}
+			p.UseRequestModifier(logs.RequestModifier)
+			p.UseResponseModifier(logs.ResponseModifier)
+			req := httptest.NewRequest(http.MethodPost, origin.URL, strings.NewReader(payload))
+			rec := httptest.NewRecorder()
+			p.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK || rec.Body.String() != payload {
+				t.Fatalf("client received status %d, body %q", rec.Code, rec.Body.String())
+			}
+			waitFor(t, 2*time.Second, func() bool {
+				stored, err := db.FindRequestLogs(ctx, reqlog.FindRequestsFilter{ProjectID: projectID}, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(stored) != 1 || stored[0].Response == nil {
+					return false
+				}
+				if string(stored[0].Body) != payload[:4] || string(stored[0].Response.Body) != payload[:4] {
+					t.Fatal("stored request and response bodies must respect the cap")
+				}
+				return true
+			})
+		})
 	}
 }

@@ -808,7 +808,7 @@ func parseHTTPRequest(req *http.Request) (HTTPRequest, error) {
 		ID:     id,
 		URL:    req.URL,
 		Method: method,
-		Proto:  HTTPProtocol(req.Proto),
+		Proto:  reqProto,
 	}
 
 	if req.Header != nil {

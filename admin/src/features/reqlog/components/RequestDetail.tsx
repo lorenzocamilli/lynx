@@ -1,5 +1,4 @@
 import { Typography, Box } from "@mui/material";
-import React from "react";
 
 import RequestTabs from "lib/components/RequestTabs";
 import { HttpRequestLogQuery } from "lib/graphql/generated";

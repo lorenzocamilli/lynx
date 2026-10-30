@@ -1,35 +1,40 @@
 package proxy
 
 import (
-	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
 )
 
+// gzipBody keeps ownership of the upstream body while exposing decoded bytes.
+// gzip.Reader.Close alone does not close the underlying network stream.
+type gzipBody struct {
+	*gzip.Reader
+	upstream io.ReadCloser
+}
+
+func (b *gzipBody) Close() error {
+	defer b.Reader.Close()
+	return b.upstream.Close()
+}
+
 func gunzipResponseBody(res *http.Response) error {
 	if res.Header.Get("Content-Encoding") != "gzip" {
 		return nil
 	}
 
-	gzipReader, err := gzip.NewReader(res.Body)
+	reader, err := gzip.NewReader(res.Body)
 	if err != nil {
 		return fmt.Errorf("proxy: could not create gzip reader: %w", err)
 	}
-	defer gzipReader.Close()
 
-	buf := &bytes.Buffer{}
-
-	//nolint:gosec
-	if _, err := io.Copy(buf, gzipReader); err != nil {
-		return fmt.Errorf("proxy: could not read gzipped response body: %w", err)
-	}
-
-	res.Body = io.NopCloser(buf)
+	// Decode on demand rather than buffering the entire expanded response.
+	// The decoded length is unknown until EOF; let net/http frame the stream.
+	res.Body = &gzipBody{Reader: reader, upstream: res.Body}
 	res.Header.Del("Content-Encoding")
-	res.Header.Set("Content-Length", fmt.Sprint(buf.Len()))
-	res.ContentLength = int64(buf.Len())
+	res.Header.Del("Content-Length")
+	res.ContentLength = -1
 
 	return nil
 }

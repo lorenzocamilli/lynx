@@ -153,7 +153,7 @@ func (p *Parser) parseExpression(prec precedence) (Expression, error) {
 		return nil, fmt.Errorf("could not parse expression prefix: %w", err)
 	}
 
-	for !p.peekTokenIs(eof) && prec < p.peekPrecedence() {
+	for !p.peekTokenIs(TokEOF) && prec < p.peekPrecedence() {
 		infixParser, ok := infixParsers[p.peek.Type]
 		if !ok {
 			break

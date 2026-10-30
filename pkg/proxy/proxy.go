@@ -249,8 +249,8 @@ func (p *Proxy) handleConnect(w http.ResponseWriter) {
 		return
 	}
 
-	clientConnNotify := ConnNotify{tlsConn, make(chan struct{})}
-	l := &OnceAcceptListener{clientConnNotify.Conn}
+	clientConnNotify := &ConnNotify{Conn: tlsConn, closed: make(chan struct{})}
+	l := &OnceAcceptListener{c: clientConnNotify}
 
 	// One-shot listener wrapping a single already-established, hijacked MITM
 	// connection. http.Server read/write timeouts would break streamed and

@@ -76,22 +76,26 @@ type Lexer struct {
 	pos    int
 	start  int
 	width  int
-	tokens chan Token
+	tokens []Token
+	state  stateFn
 }
 
 func NewLexer(input string) *Lexer {
-	l := &Lexer{
-		input:  input,
-		tokens: make(chan Token),
-	}
-
-	go l.run(begin)
-
-	return l
+	return &Lexer{input: input, state: begin}
 }
 
+// Next scans on demand. A parser may stop at its first error, so producing
+// tokens in a goroutine would leave a blocked sender behind on invalid input.
 func (l *Lexer) Next() Token {
-	return <-l.tokens
+	for len(l.tokens) == 0 && l.state != nil {
+		l.state = l.state(l)
+	}
+	if len(l.tokens) == 0 {
+		return Token{Type: TokEOF}
+	}
+	token := l.tokens[0]
+	l.tokens = l.tokens[1:]
+	return token
 }
 
 func (tt TokenType) String() string {
@@ -100,13 +104,6 @@ func (tt TokenType) String() string {
 	}
 
 	return "<unknown>"
-}
-
-func (l *Lexer) run(init stateFn) {
-	for nextState := init; nextState != nil; {
-		nextState = nextState(l)
-	}
-	close(l.tokens)
 }
 
 func (l *Lexer) read() (r rune) {
@@ -122,10 +119,10 @@ func (l *Lexer) read() (r rune) {
 }
 
 func (l *Lexer) emit(tokenType TokenType) {
-	l.tokens <- Token{
+	l.tokens = append(l.tokens, Token{
 		Type:    tokenType,
 		Literal: l.input[l.start:l.pos],
-	}
+	})
 
 	l.start = l.pos
 }
@@ -144,10 +141,10 @@ func (l *Lexer) backup() {
 }
 
 func (l *Lexer) errorf(format string, args ...interface{}) stateFn {
-	l.tokens <- Token{
+	l.tokens = append(l.tokens, Token{
 		Type:    TokInvalid,
 		Literal: fmt.Sprintf(format, args...),
-	}
+	})
 
 	return nil
 }

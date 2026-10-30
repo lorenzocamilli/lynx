@@ -4,7 +4,6 @@ import { ThemeProvider } from "@mui/material";
 import CssBaseline from "@mui/material/CssBaseline";
 import { AppProps } from "next/app";
 import Head from "next/head";
-import React from "react";
 
 import { ActiveProjectProvider } from "lib/ActiveProjectContext";
 import { InterceptedRequestsProvider } from "lib/InterceptedRequestsContext";

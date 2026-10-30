@@ -1,6 +1,5 @@
 import createEmotionServer from "@emotion/server/create-instance";
 import Document, { Html, Head, Main, NextScript } from "next/document";
-import React from "react";
 
 import createEmotionCache from "lib/mui/createEmotionCache";
 import theme from "lib/mui/theme";

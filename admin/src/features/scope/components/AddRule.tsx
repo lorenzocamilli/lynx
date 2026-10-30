@@ -31,7 +31,7 @@ function AddRule(): JSX.Element {
     },
   });
 
-  const handleTypeChange = (e: React.ChangeEvent, value: string) => {
+  const handleTypeChange = (_: React.ChangeEvent, value: string) => {
     setRuleType(value);
   };
   const handleSubmit = (e: React.SyntheticEvent) => {

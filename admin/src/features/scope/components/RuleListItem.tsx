@@ -11,7 +11,6 @@ import {
   ListItemText,
   Tooltip,
 } from "@mui/material";
-import React from "react";
 
 import { ScopeDocument, ScopeQuery, useSetScopeMutation } from "lib/graphql/generated";
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sync"
 	"time"
 
@@ -79,13 +80,22 @@ type Config struct {
 
 // NewService returns a new Service.
 func NewService(cfg Config) (*Service, error) {
-	return &Service{
+	svc := &Service{
 		repo:         cfg.Repository,
 		interceptSvc: cfg.InterceptService,
 		reqLogSvc:    cfg.ReqLogService,
 		senderSvc:    cfg.SenderService,
 		scope:        cfg.Scope,
-	}, nil
+	}
+	// Bind before exposing the services to concurrent callers. Readers take
+	// this gate only while copying state, never while doing network I/O.
+	if svc.reqLogSvc != nil {
+		svc.reqLogSvc.SetProjectStateMutex(&svc.mu)
+	}
+	if svc.senderSvc != nil {
+		svc.senderSvc.SetProjectStateMutex(&svc.mu)
+	}
+	return svc, nil
 }
 
 func (svc *Service) CreateProject(ctx context.Context, name string) (Project, error) {
@@ -134,6 +144,9 @@ func (svc *Service) CloseProject() error {
 
 // DeleteProject removes a project from the repository.
 func (svc *Service) DeleteProject(ctx context.Context, projectID ulid.ULID) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
 	if svc.activeProjectID.Compare(projectID) == 0 {
 		return fmt.Errorf("proj: project (%v) is active", projectID.String())
 	}
@@ -189,6 +202,14 @@ func (svc *Service) OpenProject(ctx context.Context, projectID ulid.ULID) (Proje
 }
 
 func (svc *Service) ActiveProject(ctx context.Context) (Project, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.activeProject(ctx)
+}
+
+// activeProject requires mu to be held. Settings writers hold it across the
+// entire read/modify/persist/apply operation, preventing lost or stale updates.
+func (svc *Service) activeProject(ctx context.Context) (Project, error) {
 	activeProjectID := svc.activeProjectID
 	if activeProjectID.Compare(ulid.ULID{}) == 0 {
 		return Project{}, ErrNoProject
@@ -218,11 +239,15 @@ func (svc *Service) Scope() *scope.Scope {
 }
 
 func (svc *Service) SetScopeRules(ctx context.Context, rules []scope.Rule) error {
-	project, err := svc.ActiveProject(ctx)
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	project, err := svc.activeProject(ctx)
 	if err != nil {
 		return err
 	}
 
+	rules = slices.Clone(rules)
 	project.Settings.ScopeRules = rules
 
 	err = svc.repo.UpsertProject(ctx, project)
@@ -236,7 +261,10 @@ func (svc *Service) SetScopeRules(ctx context.Context, rules []scope.Rule) error
 }
 
 func (svc *Service) SetRequestLogFindFilter(ctx context.Context, filter reqlog.FindRequestsFilter) error {
-	project, err := svc.ActiveProject(ctx)
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	project, err := svc.activeProject(ctx)
 	if err != nil {
 		return err
 	}
@@ -257,7 +285,10 @@ func (svc *Service) SetRequestLogFindFilter(ctx context.Context, filter reqlog.F
 }
 
 func (svc *Service) SetSenderRequestFindFilter(ctx context.Context, filter sender.FindRequestsFilter) error {
-	project, err := svc.ActiveProject(ctx)
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	project, err := svc.activeProject(ctx)
 	if err != nil {
 		return err
 	}
@@ -278,11 +309,17 @@ func (svc *Service) SetSenderRequestFindFilter(ctx context.Context, filter sende
 }
 
 func (svc *Service) IsProjectActive(projectID ulid.ULID) bool {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+
 	return projectID.Compare(svc.activeProjectID) == 0
 }
 
 func (svc *Service) UpdateInterceptSettings(ctx context.Context, settings intercept.Settings) error {
-	project, err := svc.ActiveProject(ctx)
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	project, err := svc.activeProject(ctx)
 	if err != nil {
 		return err
 	}

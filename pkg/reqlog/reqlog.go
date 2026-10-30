@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/oklog/ulid"
@@ -25,6 +26,7 @@ type contextKey int
 const (
 	LogBypassedKey contextKey = iota
 	ReqLogIDKey
+	projectIDKey
 )
 
 var (
@@ -63,6 +65,8 @@ type ResponseLog struct {
 }
 
 type Service struct {
+	projectMu                *sync.RWMutex
+	mu                       sync.RWMutex
 	bypassOutOfScopeRequests bool
 	findReqsFilter           FindRequestsFilter
 	activeProjectID          ulid.ULID
@@ -98,6 +102,8 @@ func NewService(cfg Config) *Service {
 		maxBody = 10 * 1024 * 1024
 	}
 	s := &Service{
+		projectMu:       &sync.RWMutex{},
+		findReqsFilter:  FindRequestsFilter{ProjectID: cfg.ActiveProjectID},
 		activeProjectID: cfg.ActiveProjectID,
 		repo:            cfg.Repository,
 		scope:           cfg.Scope,
@@ -120,19 +126,48 @@ func (svc *Service) emit(t sse.EventType) {
 	}
 }
 
+// SetProjectStateMutex binds state snapshots to the project coordinator.
+// Call only during setup, before concurrent use. Setters use mu only because
+// the coordinator holds projectMu while applying a complete project update.
+func (svc *Service) SetProjectStateMutex(mu *sync.RWMutex) {
+	svc.projectMu = mu
+}
+
+type projectState struct {
+	id               ulid.ULID
+	filter           FindRequestsFilter
+	bypassOutOfScope bool
+	scope            *scope.Scope
+}
+
+func (svc *Service) projectState() projectState {
+	svc.projectMu.RLock()
+	defer svc.projectMu.RUnlock()
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return projectState{svc.activeProjectID, svc.findReqsFilter, svc.bypassOutOfScopeRequests, svc.scope.Snapshot()}
+}
+
 func (svc *Service) FindRequests(ctx context.Context, limit, offset int) ([]RequestLog, error) {
-	filter := svc.findReqsFilter
+	state := svc.projectState()
+	filter := state.filter
 	filter.Limit = limit
 	filter.Offset = offset
-	return svc.repo.FindRequestLogs(ctx, filter, svc.scope)
+	return svc.repo.FindRequestLogs(ctx, filter, state.scope)
 }
 
 func (svc *Service) FindRequestLogByID(ctx context.Context, id ulid.ULID) (RequestLog, error) {
-	return svc.repo.FindRequestLogByID(ctx, svc.activeProjectID, id)
+	return svc.FindRequestLogByProjectID(ctx, svc.ActiveProjectID(), id)
+}
+
+// FindRequestLogByProjectID reads from an explicit operation snapshot rather
+// than consulting the active project again during a cross-service operation.
+func (svc *Service) FindRequestLogByProjectID(ctx context.Context, projectID, id ulid.ULID) (RequestLog, error) {
+	return svc.repo.FindRequestLogByID(ctx, projectID, id)
 }
 
 func (svc *Service) CountRequests(ctx context.Context) (int, error) {
-	return svc.repo.CountRequestLogs(ctx, svc.activeProjectID)
+	return svc.repo.CountRequestLogs(ctx, svc.ActiveProjectID())
 }
 
 func (svc *Service) ClearRequests(ctx context.Context, projectID ulid.ULID) error {
@@ -143,26 +178,26 @@ func (svc *Service) DeleteRequest(ctx context.Context, projectID, id ulid.ULID) 
 	return svc.repo.DeleteRequestLog(ctx, projectID, id)
 }
 
-func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *http.Response, duration time.Duration) error {
-	resLog, err := ParseHTTPResponse(res)
-	if err != nil {
-		return err
-	}
-
-	resLog.Duration = duration
-
-	// resLog.Header is already a clone (see ParseHTTPResponse), so redacting
-	// in place only affects the stored log, not the forwarded response.
-	if len(svc.redactHeaders) > 0 {
-		redactHeaders(resLog.Header, svc.redactHeaders)
-	}
-
-	return svc.repo.StoreResponseLog(ctx, svc.activeProjectID, reqLogID, resLog)
+// captureBody reads only the logged prefix, then replays it before the unread
+// remainder. Closing the replacement must still close the original stream.
+func captureBody(body io.ReadCloser, limit int64) ([]byte, io.ReadCloser, error) {
+	prefix, err := io.ReadAll(io.LimitReader(body, limit))
+	return prefix, struct {
+		io.Reader
+		io.Closer
+	}{io.MultiReader(bytes.NewReader(prefix), body), body}, err
 }
 
 func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestModifyFunc {
 	return func(req *http.Request) {
+		state := svc.projectState()
+		projectID := state.id
 		next(req)
+
+		if projectID.Compare(ulid.ULID{}) == 0 {
+			*req = *req.WithContext(context.WithValue(req.Context(), LogBypassedKey, true))
+			return
+		}
 
 		clone := req.Clone(req.Context())
 
@@ -171,10 +206,11 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 		if req.Body != nil {
 			var err error
 
-			body, err = io.ReadAll(io.LimitReader(req.Body, svc.maxBodyBytes))
+			body, req.Body, err = captureBody(req.Body, svc.maxBodyBytes)
 			if err != nil {
 				svc.logger.Errorw("Failed to read request body for logging.",
 					"error", err)
+				*req = *req.WithContext(context.WithValue(req.Context(), LogBypassedKey, true))
 				return
 			}
 
@@ -183,25 +219,11 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 					"maxBodyBytes", svc.maxBodyBytes,
 					"url", req.URL.String())
 			}
-
-			req.Body = io.NopCloser(bytes.NewBuffer(body))
-			clone.Body = io.NopCloser(bytes.NewBuffer(body))
-		}
-
-		// Bypass logging if no project is active.
-		if svc.activeProjectID.Compare(ulid.ULID{}) == 0 {
-			ctx := context.WithValue(req.Context(), LogBypassedKey, true)
-			*req = *req.WithContext(ctx)
-
-			svc.logger.Debugw("Bypassed logging: no active project.",
-				"url", req.URL.String())
-
-			return
 		}
 
 		// Bypass logging if this setting is enabled and the incoming request
 		// doesn't match any scope rules.
-		if svc.bypassOutOfScopeRequests && !svc.scope.Match(clone, body) {
+		if state.bypassOutOfScope && !state.scope.Match(clone, body) {
 			ctx := context.WithValue(req.Context(), LogBypassedKey, true)
 			*req = *req.WithContext(ctx)
 
@@ -214,6 +236,7 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 		reqID, ok := proxy.RequestIDFromContext(req.Context())
 		if !ok {
 			svc.logger.Errorw("Bypassed logging: request doesn't have an ID.")
+			*req = *req.WithContext(context.WithValue(req.Context(), LogBypassedKey, true))
 			return
 		}
 
@@ -227,7 +250,7 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 
 		reqLog := RequestLog{
 			ID:        reqID,
-			ProjectID: svc.activeProjectID,
+			ProjectID: projectID,
 			Method:    clone.Method,
 			URL:       clone.URL,
 			Proto:     clone.Proto,
@@ -250,7 +273,8 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 
 		svc.emit(sse.EventRequestLog)
 
-		ctx := context.WithValue(req.Context(), ReqLogIDKey, reqLog.ID)
+		ctx := context.WithValue(req.Context(), projectIDKey, projectID)
+		ctx = context.WithValue(ctx, ReqLogIDKey, reqLog.ID)
 		*req = *req.WithContext(ctx)
 	}
 }
@@ -272,10 +296,18 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 
 		duration, _ := proxy.RequestDurationFromContext(res.Request.Context())
 
+		// Bind the response to the project that captured its request, even if
+		// the user switches projects while the upstream request is in flight.
+		projectID, ok := res.Request.Context().Value(projectIDKey).(ulid.ULID)
+		if !ok {
+			projectID = svc.ActiveProjectID()
+		}
 		clone := *res
+		clone.Header = res.Header.Clone()
 
 		if res.Body != nil {
-			body, err := io.ReadAll(io.LimitReader(res.Body, svc.maxBodyBytes))
+			body, restored, err := captureBody(res.Body, svc.maxBodyBytes)
+			res.Body = restored
 			if err != nil {
 				return fmt.Errorf("reqlog: could not read response body: %w", err)
 			}
@@ -285,17 +317,21 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 					"maxBodyBytes", svc.maxBodyBytes)
 			}
 
-			res.Body = io.NopCloser(bytes.NewBuffer(body))
 			clone.Body = io.NopCloser(bytes.NewBuffer(body))
 		}
 
+		resLog, err := ParseHTTPResponse(&clone)
+		if err != nil {
+			return err
+		}
+		resLog.Duration = duration
+		redactHeaders(resLog.Header, svc.redactHeaders)
+
 		go func() {
-			if err := svc.storeResponse(context.Background(), reqLogID, &clone, duration); err != nil {
-				svc.logger.Errorw("Failed to store response log.",
-					"error", err)
+			if err := svc.repo.StoreResponseLog(context.Background(), projectID, reqLogID, resLog); err != nil {
+				svc.logger.Errorw("Failed to store response log.", "error", err)
 			} else {
-				svc.logger.Debugw("Stored response log.",
-					"reqLogID", reqLogID.String())
+				svc.logger.Debugw("Stored response log.", "reqLogID", reqLogID.String())
 				svc.emit(sse.EventResponseLog)
 			}
 		}()
@@ -305,31 +341,45 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 }
 
 func (svc *Service) SetActiveProjectID(id ulid.ULID) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
 	svc.activeProjectID = id
+	svc.findReqsFilter.ProjectID = id
 }
 
 func (svc *Service) ActiveProjectID() ulid.ULID {
-	return svc.activeProjectID
+	return svc.projectState().id
 }
 
 func (svc *Service) SetFindReqsFilter(filter FindRequestsFilter) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	filter.ProjectID = svc.activeProjectID
 	svc.findReqsFilter = filter
 }
 
 func (svc *Service) FindReqsFilter() FindRequestsFilter {
-	return svc.findReqsFilter
+	return svc.projectState().filter
 }
 
 func (svc *Service) SetBypassOutOfScopeRequests(bypass bool) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
 	svc.bypassOutOfScopeRequests = bypass
 }
 
 func (svc *Service) BypassOutOfScopeRequests() bool {
-	return svc.bypassOutOfScopeRequests
+	return svc.projectState().bypassOutOfScope
 }
 
 func ParseHTTPResponse(res *http.Response) (ResponseLog, error) {
-	bodyReader := res.Body
+	var bodyReader io.Reader = http.NoBody
+	if res.Body != nil {
+		bodyReader = res.Body
+	}
 
 	if res.Header.Get("Content-Encoding") == "gzip" {
 		gzipReader, err := gzip.NewReader(res.Body)

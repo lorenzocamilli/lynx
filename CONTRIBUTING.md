@@ -32,4 +32,21 @@ maintainers have envisioned.
 
 ## Development
 
-_Todo: Write steps for setting up local development environment._
+Install Go 1.25+, Node.js 20+, and a C compiler (required by Go's race
+detector), then run:
+
+```bash
+make check       # Go build/tests/race/vet and admin lint/typecheck
+make build       # static admin export and single embedded Go binary
+./lynx
+```
+
+For a quicker backend-only test run that doesn't require building the UI:
+
+```bash
+go test -tags noembed ./cmd/... ./pkg/...
+```
+
+Frontend type-checking also rejects unused locals and parameters. Keep generated
+GraphQL files in sync with their schemas rather than editing generated code by
+hand. See `CODEBASE_REVIEW.md` for the current release-readiness findings.

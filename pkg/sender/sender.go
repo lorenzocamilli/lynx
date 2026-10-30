@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/oklog/ulid"
@@ -32,6 +33,8 @@ var (
 )
 
 type Service struct {
+	mu              sync.RWMutex
+	projectMu       *sync.RWMutex
 	activeProjectID ulid.ULID
 	findReqsFilter  FindRequestsFilter
 	scope           *scope.Scope
@@ -61,6 +64,7 @@ type SendError struct {
 
 func NewService(cfg Config) *Service {
 	svc := &Service{
+		projectMu:  &sync.RWMutex{},
 		repo:       cfg.Repository,
 		reqLogSvc:  cfg.ReqLogService,
 		httpClient: defaultHTTPClient,
@@ -88,8 +92,29 @@ type Request struct {
 	Response *reqlog.ResponseLog
 }
 
+// SetProjectStateMutex binds state snapshots to the project coordinator.
+// It must be called during setup, before any concurrent service use. Setters
+// use mu only: the coordinator already holds projectMu while applying updates.
+func (svc *Service) SetProjectStateMutex(mu *sync.RWMutex) {
+	svc.projectMu = mu
+}
+
+type projectState struct {
+	id     ulid.ULID
+	filter FindRequestsFilter
+	scope  *scope.Scope
+}
+
+func (svc *Service) projectState() projectState {
+	svc.projectMu.RLock()
+	defer svc.projectMu.RUnlock()
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return projectState{svc.activeProjectID, svc.findReqsFilter, svc.scope.Snapshot()}
+}
+
 func (svc *Service) FindRequestByID(ctx context.Context, id ulid.ULID) (Request, error) {
-	req, err := svc.repo.FindSenderRequestByID(ctx, svc.activeProjectID, id)
+	req, err := svc.repo.FindSenderRequestByID(ctx, svc.projectState().id, id)
 	if err != nil {
 		return Request{}, fmt.Errorf("sender: failed to find request: %w", err)
 	}
@@ -98,14 +123,16 @@ func (svc *Service) FindRequestByID(ctx context.Context, id ulid.ULID) (Request,
 }
 
 func (svc *Service) FindRequests(ctx context.Context, limit, offset int) ([]Request, error) {
-	filter := svc.findReqsFilter
+	state := svc.projectState()
+	filter := state.filter
 	filter.Limit = limit
 	filter.Offset = offset
-	return svc.repo.FindSenderRequests(ctx, filter, svc.scope)
+	return svc.repo.FindSenderRequests(ctx, filter, state.scope)
 }
 
 func (svc *Service) CreateOrUpdateRequest(ctx context.Context, req Request) (Request, error) {
-	if svc.activeProjectID.Compare(ulid.ULID{}) == 0 {
+	projectID := svc.projectState().id
+	if projectID.Compare(ulid.ULID{}) == 0 {
 		return Request{}, ErrProjectIDMustBeSet
 	}
 
@@ -113,7 +140,7 @@ func (svc *Service) CreateOrUpdateRequest(ctx context.Context, req Request) (Req
 		req.ID = ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy)
 	}
 
-	req.ProjectID = svc.activeProjectID
+	req.ProjectID = projectID
 
 	if req.Method == "" {
 		req.Method = http.MethodGet
@@ -136,18 +163,19 @@ func (svc *Service) CreateOrUpdateRequest(ctx context.Context, req Request) (Req
 }
 
 func (svc *Service) CloneFromRequestLog(ctx context.Context, reqLogID ulid.ULID) (Request, error) {
-	if svc.activeProjectID.Compare(ulid.ULID{}) == 0 {
+	projectID := svc.projectState().id
+	if projectID.Compare(ulid.ULID{}) == 0 {
 		return Request{}, ErrProjectIDMustBeSet
 	}
 
-	reqLog, err := svc.reqLogSvc.FindRequestLogByID(ctx, reqLogID)
+	reqLog, err := svc.reqLogSvc.FindRequestLogByProjectID(ctx, projectID, reqLogID)
 	if err != nil {
 		return Request{}, fmt.Errorf("sender: failed to find request log: %w", err)
 	}
 
 	req := Request{
 		ID:                 ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy),
-		ProjectID:          svc.activeProjectID,
+		ProjectID:          projectID,
 		SourceRequestLogID: reqLogID,
 		Method:             reqLog.Method,
 		URL:                reqLog.URL,
@@ -165,15 +193,18 @@ func (svc *Service) CloneFromRequestLog(ctx context.Context, reqLogID ulid.ULID)
 }
 
 func (svc *Service) SetFindReqsFilter(filter FindRequestsFilter) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	filter.ProjectID = svc.activeProjectID
 	svc.findReqsFilter = filter
 }
 
 func (svc *Service) FindReqsFilter() FindRequestsFilter {
-	return svc.findReqsFilter
+	return svc.projectState().filter
 }
 
 func (svc *Service) SendRequest(ctx context.Context, id ulid.ULID) (Request, error) {
-	req, err := svc.repo.FindSenderRequestByID(ctx, svc.activeProjectID, id)
+	req, err := svc.repo.FindSenderRequestByID(ctx, svc.projectState().id, id)
 	if err != nil {
 		return Request{}, fmt.Errorf("sender: failed to find request: %w", err)
 	}
@@ -194,8 +225,6 @@ func (svc *Service) SendRequest(ctx context.Context, id ulid.ULID) (Request, err
 	if err != nil {
 		return Request{}, fmt.Errorf("sender: failed to store sender response log: %w", err)
 	}
-
-	req.Response = &resLog
 
 	return req, nil
 }
@@ -237,7 +266,10 @@ func (svc *Service) sendHTTPRequest(httpReq *http.Request) (reqlog.ResponseLog, 
 }
 
 func (svc *Service) SetActiveProjectID(id ulid.ULID) {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 	svc.activeProjectID = id
+	svc.findReqsFilter.ProjectID = id
 }
 
 func (svc *Service) DeleteRequests(ctx context.Context, projectID ulid.ULID) error {
@@ -245,7 +277,7 @@ func (svc *Service) DeleteRequests(ctx context.Context, projectID ulid.ULID) err
 }
 
 func (svc *Service) DeleteRequest(ctx context.Context, id ulid.ULID) error {
-	return svc.repo.DeleteSenderRequest(ctx, svc.activeProjectID, id)
+	return svc.repo.DeleteSenderRequest(ctx, svc.projectState().id, id)
 }
 
 func (e SendError) Error() string {

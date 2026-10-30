@@ -279,3 +279,39 @@ func TestFindSenderRequests(t *testing.T) {
 		}
 	})
 }
+
+func TestDeleteSenderRequests(t *testing.T) {
+	db, err := bolt.OpenDatabase(t.TempDir()+"/lynx.db", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	ctx := context.Background()
+	projectID := ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy)
+	if err := db.UpsertProject(ctx, proj.Project{ID: projectID}); err != nil {
+		t.Fatal(err)
+	}
+	fixture := sender.Request{
+		ID:        ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy),
+		ProjectID: projectID,
+		URL:       exampleURL,
+	}
+	if err := db.StoreSenderRequest(ctx, fixture); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := db.DeleteSenderRequests(ctx, projectID); err != nil {
+			t.Fatal(err)
+		}
+		reqs, err := db.FindSenderRequests(ctx, sender.FindRequestsFilter{ProjectID: projectID}, nil)
+		if err != nil || len(reqs) != 0 {
+			t.Fatalf("requests after clearing = %v, %v", reqs, err)
+		}
+	}
+	if err := db.StoreSenderRequest(ctx, fixture); err != nil {
+		t.Fatalf("cannot store new requests after clearing: %v", err)
+	}
+	if _, err := db.FindProjectByID(ctx, projectID); err != nil {
+		t.Fatalf("clearing sender history damaged the project: %v", err)
+	}
+}

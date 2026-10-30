@@ -1,5 +1,5 @@
 import { Box, Tab, Tabs } from "@mui/material";
-import React, { useState } from "react";
+import { useState } from "react";
 
 import { KeyValuePairTable, KeyValuePair, KeyValuePairTableProps } from "./KeyValuePair";
 import TabPanel from "./TabPanel";

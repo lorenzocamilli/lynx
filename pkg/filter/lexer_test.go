@@ -88,3 +88,20 @@ func TestNextToken(t *testing.T) {
 		})
 	}
 }
+
+func TestLexerEndOfInput(t *testing.T) {
+	for _, input := range []string{"", "foo", `"unclosed`} {
+		t.Run(input, func(t *testing.T) {
+			l := NewLexer(input)
+			for i := 0; i < 5; i++ {
+				if tok := l.Next(); tok.Type == TokEOF {
+					if got := l.Next(); got.Type != TokEOF {
+						t.Fatalf("Next after EOF = %v, want EOF", got)
+					}
+					return
+				}
+			}
+			t.Fatal("lexer did not reach EOF")
+		})
+	}
+}

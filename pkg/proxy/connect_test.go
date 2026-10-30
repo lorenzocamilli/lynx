@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -48,7 +49,13 @@ func TestHandleConnect(t *testing.T) {
 		t.Fatalf("failed to create proxy: %v", err)
 	}
 
-	proxyServer := httptest.NewServer(p)
+	tunnelDone := make(chan struct{})
+	proxyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p.ServeHTTP(w, r)
+		if r.Method == http.MethodConnect {
+			close(tunnelDone)
+		}
+	}))
 	defer proxyServer.Close()
 
 	proxyURL, err := url.Parse(proxyServer.URL)
@@ -104,5 +111,18 @@ func TestHandleConnect(t *testing.T) {
 
 	if len(leaf.DNSNames) != 1 || leaf.DNSNames[0] != "localhost" {
 		t.Errorf("expected leaf cert DNSNames [localhost], got %v", leaf.DNSNames)
+	}
+
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		t.Fatal(err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	client.CloseIdleConnections()
+	select {
+	case <-tunnelDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("CONNECT handler did not exit after the client closed its tunnel")
 	}
 }

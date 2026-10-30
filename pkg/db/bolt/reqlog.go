@@ -157,14 +157,7 @@ func (db *Database) StoreRequestLog(ctx context.Context, reqLog reqlog.RequestLo
 }
 
 func (db *Database) StoreResponseLog(ctx context.Context, projectID, reqLogID ulid.ULID, resLog reqlog.ResponseLog) error {
-	buf := bytes.Buffer{}
-
-	err := gob.NewEncoder(&buf).Encode(resLog)
-	if err != nil {
-		return fmt.Errorf("bolt: failed to encode response log: %w", err)
-	}
-
-	err = db.bolt.Update(func(txn *bolt.Tx) error {
+	err := db.bolt.Update(func(txn *bolt.Tx) error {
 		b, err := requestLogsBucket(txn, projectID)
 		if err != nil {
 			return fmt.Errorf("failed to get request logs bucket: %w", err)

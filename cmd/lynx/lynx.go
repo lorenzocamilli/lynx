@@ -143,6 +143,7 @@ func run(ctx context.Context, cfg config.Config, logger *zap.Logger) error {
 	})
 
 	senderService := sender.NewService(sender.Config{
+		Scope:         scope,
 		Repository:    boltDB,
 		ReqLogService: reqLogService,
 	})

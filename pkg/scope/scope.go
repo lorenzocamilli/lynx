@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"net/http"
 	"regexp"
+	"slices"
 	"sync"
 )
 
@@ -28,14 +29,23 @@ func (s *Scope) Rules() []Rule {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.rules
+	return slices.Clone(s.rules)
 }
 
 func (s *Scope) SetRules(rules []Rule) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.rules = rules
+	s.rules = slices.Clone(rules)
+}
+
+// Snapshot returns an independent rules slice for an in-flight operation.
+// Compiled regular expressions are treated as immutable after configuration.
+func (s *Scope) Snapshot() *Scope {
+	if s == nil {
+		return nil
+	}
+	return &Scope{rules: s.Rules()}
 }
 
 func (s *Scope) Match(req *http.Request, body []byte) bool {
