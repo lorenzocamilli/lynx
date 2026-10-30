@@ -27,39 +27,38 @@ type contextKey int
 
 const interceptResponseKey contextKey = 0
 
-// Request represents a server received HTTP request, alongside a channel for sending a modified version of it to the
-// routine that's awaiting it. Also contains a channel for receiving a cancellation signal.
+// Request owns the immutable snapshot and control channels for a pending request.
+// All queue access is protected by Service.mu; HTTP streams are never published.
 type Request struct {
-	req  *http.Request
-	ch   chan<- *http.Request
-	done <-chan struct{}
+	snapshot *requestSnapshot
+	ctx      context.Context
+	ch       chan *http.Request
+	abort    chan struct{}
 }
 
-// Response represents an HTTP response from a proxied request, alongside a channel for sending a modified version of it
-// to the routine that's awaiting it. Also contains a channel for receiving a cancellation signal.
+// Response owns the immutable snapshot and control channels for a pending response.
 type Response struct {
-	res  *http.Response
-	ch   chan<- *http.Response
-	done <-chan struct{}
+	snapshot *responseSnapshot
+	ctx      context.Context
+	ch       chan *http.Response
+	abort    chan struct{}
 }
 
+// Item is a caller-owned view. Its headers, URLs and body readers are independent
+// of other readers and the forwarding goroutine. Context/TLS metadata is read-only.
 type Item struct {
 	Request  *http.Request
 	Response *http.Response
 }
 
 type Service struct {
-	reqMu       *sync.RWMutex
-	resMu       *sync.RWMutex
-	requests    map[ulid.ULID]Request
-	responses   map[ulid.ULID]Response
+	mu          sync.RWMutex
+	settings    Settings
+	version     uint64
+	requests    map[ulid.ULID]*Request
+	responses   map[ulid.ULID]*Response
 	logger      log.Logger
 	broadcaster *sse.Broadcaster
-
-	requestsEnabled  bool
-	responsesEnabled bool
-	reqFilter        filter.Expression
-	resFilter        filter.Expression
 }
 
 type Config struct {
@@ -76,394 +75,377 @@ type RequestIDs []ulid.ULID
 
 func NewService(cfg Config) *Service {
 	s := &Service{
-		reqMu:            &sync.RWMutex{},
-		resMu:            &sync.RWMutex{},
-		requests:         make(map[ulid.ULID]Request),
-		responses:        make(map[ulid.ULID]Response),
-		logger:           cfg.Logger,
-		broadcaster:      cfg.Broadcaster,
-		requestsEnabled:  cfg.RequestsEnabled,
-		responsesEnabled: cfg.ResponsesEnabled,
-		reqFilter:        cfg.RequestFilter,
-		resFilter:        cfg.ResponseFilter,
+		requests:    make(map[ulid.ULID]*Request),
+		responses:   make(map[ulid.ULID]*Response),
+		logger:      cfg.Logger,
+		broadcaster: cfg.Broadcaster,
+		settings: Settings{
+			RequestsEnabled:  cfg.RequestsEnabled,
+			ResponsesEnabled: cfg.ResponsesEnabled,
+			RequestFilter:    cfg.RequestFilter,
+			ResponseFilter:   cfg.ResponseFilter,
+		},
 	}
-
 	if s.logger == nil {
 		s.logger = log.NewNopLogger()
 	}
-
 	return s
 }
 
-//nolint:unparam // emit is the single choke point for intercept SSE events; the type stays explicit
+//nolint:unparam // Keep the event type explicit at the emission boundary.
 func (svc *Service) emit(t sse.EventType) {
 	if svc.broadcaster != nil {
 		svc.broadcaster.Broadcast(sse.Event{Type: t})
 	}
 }
 
-// RequestModifier is a proxy.RequestModifyMiddleware for intercepting HTTP requests.
+func (svc *Service) settingsSnapshot() (Settings, uint64) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.settings, svc.version
+}
+
+// RequestModifier intercepts requests before invoking the next modifier.
 func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestModifyFunc {
 	return func(req *http.Request) {
-		// This is a blocking operation, that gets unblocked when either a modified request is returned or an error
-		// (typically `context.Canceled`).
-		modifiedReq, err := svc.InterceptRequest(req.Context(), req)
-
-		switch {
-		case errors.Is(err, ErrRequestAborted):
-			svc.logger.Debugw("Stopping intercept, request was aborted.")
-			// Prevent further processing by replacing req.Context with a cancelled context value.
-			// This will cause the http.Roundtripper in the `proxy` package to
-			// handle this request as an error.
-			ctx, cancel := context.WithCancel(context.Background())
+		modified, err := svc.InterceptRequest(req.Context(), req)
+		if err != nil {
+			if errors.Is(err, ErrRequestAborted) || errors.Is(err, context.Canceled) {
+				svc.logger.Debugw("Stopping request interception.", "error", err)
+			} else {
+				svc.logger.Errorw("Failed to intercept request.", "error", err)
+			}
+			// Fail closed: a capture/filter error must not send a partially
+			// consumed request upstream. Preserve the existing context values.
+			ctx, cancel := context.WithCancel(req.Context())
 			cancel()
-
 			*req = *req.WithContext(ctx)
-		case errors.Is(err, context.Canceled):
-			svc.logger.Debugw("Stopping intercept, context was cancelled.")
-		case err != nil:
-			svc.logger.Errorw("Failed to intercept request.",
-				"error", err)
-		default:
-			*req = *modifiedReq
-			next(req)
+			return
 		}
+		*req = *modified
+		next(req)
 	}
 }
 
-// InterceptRequest adds an HTTP request to an array of pending intercepted requests, alongside channels used for
-// sending a cancellation signal and receiving a modified request. It's safe for concurrent use.
+// InterceptRequest owns req exclusively until it returns. It captures the body
+// before publishing any pending item; readers never access the live HTTP object.
 func (svc *Service) InterceptRequest(ctx context.Context, req *http.Request) (*http.Request, error) {
-	reqID, ok := proxy.RequestIDFromContext(ctx)
+	id, ok := proxy.RequestIDFromContext(ctx)
 	if !ok {
 		svc.logger.Errorw("Failed to intercept: context doesn't have an ID.")
 		return req, nil
 	}
-
-	if !svc.requestsEnabled {
-		// If request intercept is disabled, return the incoming request as-is.
-		svc.logger.Debugw("Bypassed request interception: feature disabled.")
+	settings, version := svc.settingsSnapshot()
+	explicitResponse, _ := ShouldInterceptResponseFromContext(ctx)
+	if !settings.RequestsEnabled && !settings.ResponsesEnabled && !explicitResponse {
 		return req, nil
 	}
-
-	if svc.reqFilter != nil {
-		match, err := MatchRequestFilter(req, svc.reqFilter)
-		if err != nil {
-			return nil, fmt.Errorf("intercept: failed to match request rules for request (id: %v): %w",
-				reqID.String(), err,
-			)
+	// Also preserve a replayable request body for later response inspection,
+	// even when only response interception is enabled.
+	snapshot, err := captureRequest(req)
+	if err != nil {
+		return nil, err
+	}
+	pending := &Request{snapshot: snapshot, ctx: ctx, ch: make(chan *http.Request, 1), abort: make(chan struct{})}
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
-
-		if !match {
-			svc.logger.Debugw("Bypassed request interception: request rules don't match.")
+		if !settings.RequestsEnabled {
 			return req, nil
 		}
+		if settings.RequestFilter != nil {
+			match, err := MatchRequestFilter(snapshot.clone(), settings.RequestFilter)
+			if err != nil {
+				return nil, fmt.Errorf("intercept: failed to match request filter (id: %v): %w", id, err)
+			}
+			if !match {
+				return req, nil
+			}
+		}
+		svc.mu.Lock()
+		if version != svc.version {
+			// Settings changed during body preparation/filtering. Reevaluate
+			// rather than registering a stale item after a disable/clear.
+			settings, version = svc.settings, svc.version
+			svc.mu.Unlock()
+			continue
+		}
+		svc.requests[id] = pending
+		svc.mu.Unlock()
+		break
 	}
-
-	ch := make(chan *http.Request)
-	done := make(chan struct{})
-
-	svc.reqMu.Lock()
-	svc.requests[reqID] = Request{
-		req:  req,
-		ch:   ch,
-		done: done,
-	}
-	svc.reqMu.Unlock()
 	svc.emit(sse.EventIntercepted)
-
-	// Whatever happens next (modified request returned, or a context cancelled error), any blocked channel senders
-	// should be unblocked, and the request should be removed from the requests queue.
 	defer func() {
-		close(done)
-		svc.reqMu.Lock()
-		delete(svc.requests, reqID)
-		svc.reqMu.Unlock()
+		svc.mu.Lock()
+		if svc.requests[id] == pending {
+			delete(svc.requests, id)
+		}
+		svc.mu.Unlock()
 		svc.emit(sse.EventIntercepted)
 	}()
-
 	select {
-	case modReq := <-ch:
-		if modReq == nil {
+	case modified := <-pending.ch:
+		if modified == nil {
 			return nil, ErrRequestAborted
 		}
-
-		return modReq, nil
+		return modified, nil
+	case <-pending.abort:
+		return nil, ErrRequestAborted
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
-// ModifyRequest sends a modified HTTP request to the related channel, or returns ErrRequestDone when the request was
-// cancelled. It's safe for concurrent use.
-func (svc *Service) ModifyRequest(reqID ulid.ULID, modReq *http.Request, modifyResponse *bool) error {
-	svc.reqMu.RLock()
-	req, ok := svc.requests[reqID]
-	svc.reqMu.RUnlock()
-
+// ModifyRequest prepares an owned copy before handing it to the forwarding
+// goroutine. The caller must not mutate modReq during this call; afterward the
+// caller and the forwarded request have independent headers and body readers.
+func (svc *Service) ModifyRequest(id ulid.ULID, modReq *http.Request, modifyResponse *bool) error {
+	svc.mu.RLock()
+	pending, ok := svc.requests[id]
+	svc.mu.RUnlock()
 	if !ok {
 		return ErrRequestNotFound
 	}
-
+	var owned *http.Request
 	if modReq != nil {
-		*modReq = *modReq.WithContext(req.req.Context())
+		snapshot, err := captureRequest(modReq)
+		if err != nil {
+			return err
+		}
+		owned = snapshot.clone().WithContext(pending.snapshot.metadata.Context())
 		if modifyResponse != nil {
-			*modReq = *modReq.WithContext(WithInterceptResponse(modReq.Context(), *modifyResponse))
+			owned = owned.WithContext(WithInterceptResponse(owned.Context(), *modifyResponse))
 		}
 	}
-
-	select {
-	case <-req.done:
+	// Resolution and clearing share mu. The single buffered handoff cannot
+	// block, and removing the entry ensures only one mutation can win.
+	svc.mu.Lock()
+	if svc.requests[id] != pending || pending.ctx.Err() != nil {
+		svc.mu.Unlock()
 		return ErrRequestDone
-	case req.ch <- modReq:
-		return nil
+	}
+	pending.ch <- owned
+	delete(svc.requests, id)
+	svc.mu.Unlock()
+	svc.emit(sse.EventIntercepted)
+	return nil
+}
+
+func (svc *Service) CancelRequest(id ulid.ULID) error {
+	return svc.ModifyRequest(id, nil, nil)
+}
+
+// clearRequests requires mu. Closing an abort channel never waits for a
+// forwarding goroutine to receive, so clearing cannot deadlock queue readers.
+func (svc *Service) clearRequests() {
+	for id, pending := range svc.requests {
+		close(pending.abort)
+		delete(svc.requests, id)
 	}
 }
 
-// CancelRequest ensures an intercepted request is dropped.
-func (svc *Service) CancelRequest(reqID ulid.ULID) error {
-	return svc.ModifyRequest(reqID, nil, nil)
+func (svc *Service) clearResponses() {
+	for id, pending := range svc.responses {
+		close(pending.abort)
+		delete(svc.responses, id)
+	}
 }
 
 func (svc *Service) ClearRequests() {
-	svc.reqMu.Lock()
-	defer svc.reqMu.Unlock()
-
-	for _, req := range svc.requests {
-		select {
-		case <-req.done:
-		case req.ch <- nil:
-		}
-	}
+	svc.mu.Lock()
+	svc.clearRequests()
+	svc.mu.Unlock()
+	svc.emit(sse.EventIntercepted)
 }
 
 func (svc *Service) ClearResponses() {
-	svc.resMu.Lock()
-	defer svc.resMu.Unlock()
-
-	for _, res := range svc.responses {
-		select {
-		case <-res.done:
-		case res.ch <- nil:
-		}
-	}
+	svc.mu.Lock()
+	svc.clearResponses()
+	svc.mu.Unlock()
+	svc.emit(sse.EventIntercepted)
 }
 
-// Items returns a list of pending items (requests and responses). It's safe for concurrent use.
+// Items returns independent, caller-owned pending item views in ID order.
 func (svc *Service) Items() []Item {
-	svc.reqMu.RLock()
-	defer svc.reqMu.RUnlock()
-
-	svc.resMu.RLock()
-	defer svc.resMu.RUnlock()
-
-	reqIDs := make([]ulid.ULID, 0, len(svc.requests)+len(svc.responses))
-
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	ids := make(RequestIDs, 0, len(svc.requests)+len(svc.responses))
 	for id := range svc.requests {
-		reqIDs = append(reqIDs, id)
+		ids = append(ids, id)
 	}
-
 	for id := range svc.responses {
-		reqIDs = append(reqIDs, id)
-	}
-
-	sort.Sort(RequestIDs(reqIDs))
-
-	items := make([]Item, len(reqIDs))
-
-	for i, id := range reqIDs {
-		item := Item{}
-
-		if req, ok := svc.requests[id]; ok {
-			item.Request = req.req
+		if _, exists := svc.requests[id]; !exists {
+			ids = append(ids, id)
 		}
-
-		if res, ok := svc.responses[id]; ok {
-			item.Response = res.res
-		}
-
-		items[i] = item
 	}
-
+	sort.Sort(ids)
+	items := make([]Item, 0, len(ids))
+	for _, id := range ids {
+		items = append(items, svc.item(id))
+	}
 	return items
 }
 
+// UpdateSettings atomically changes admission policy and aborts queues on an
+// enabled -> disabled transition. Filter ASTs are immutable after configuration.
 func (svc *Service) UpdateSettings(settings Settings) {
-	// When updating from requests `enabled` -> `disabled`, clear any pending reqs.
-	if svc.requestsEnabled && !settings.RequestsEnabled {
-		svc.ClearRequests()
+	svc.mu.Lock()
+	if svc.settings.RequestsEnabled && !settings.RequestsEnabled {
+		svc.clearRequests()
 	}
-
-	// When updating from responses `enabled` -> `disabled`, clear any pending responses.
-	if svc.responsesEnabled && !settings.ResponsesEnabled {
-		svc.ClearResponses()
+	if svc.settings.ResponsesEnabled && !settings.ResponsesEnabled {
+		svc.clearResponses()
 	}
-
-	svc.requestsEnabled = settings.RequestsEnabled
-	svc.responsesEnabled = settings.ResponsesEnabled
-	svc.reqFilter = settings.RequestFilter
-	svc.resFilter = settings.ResponseFilter
+	svc.settings = settings
+	svc.version++
+	svc.mu.Unlock()
+	svc.emit(sse.EventIntercepted)
 }
 
-// ItemByID returns an intercepted item (request and possible response) by ID. It's safe for concurrent use.
+// item requires at least a read lock on mu.
+func (svc *Service) item(id ulid.ULID) Item {
+	var item Item
+	if pending := svc.requests[id]; pending != nil {
+		item.Request = pending.snapshot.clone()
+	}
+	if pending := svc.responses[id]; pending != nil {
+		item.Response = pending.snapshot.clone()
+	}
+	return item
+}
+
 func (svc *Service) ItemByID(id ulid.ULID) (Item, error) {
-	svc.reqMu.RLock()
-	defer svc.reqMu.RUnlock()
-
-	svc.resMu.RLock()
-	defer svc.resMu.RUnlock()
-
-	item := Item{}
-	found := false
-
-	if req, ok := svc.requests[id]; ok {
-		item.Request = req.req
-		found = true
-	}
-
-	if res, ok := svc.responses[id]; ok {
-		item.Response = res.res
-		found = true
-	}
-
-	if !found {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	if svc.requests[id] == nil && svc.responses[id] == nil {
 		return Item{}, ErrRequestNotFound
 	}
-
-	return item, nil
+	return svc.item(id), nil
 }
 
-func (ids RequestIDs) Len() int {
-	return len(ids)
-}
-
-func (ids RequestIDs) Less(i, j int) bool {
-	return ids[i].Compare(ids[j]) == -1
-}
-
-func (ids RequestIDs) Swap(i, j int) {
-	ids[i], ids[j] = ids[j], ids[i]
-}
+func (ids RequestIDs) Len() int           { return len(ids) }
+func (ids RequestIDs) Less(i, j int) bool { return ids[i].Compare(ids[j]) == -1 }
+func (ids RequestIDs) Swap(i, j int)      { ids[i], ids[j] = ids[j], ids[i] }
 
 func WithInterceptResponse(ctx context.Context, value bool) context.Context {
 	return context.WithValue(ctx, interceptResponseKey, value)
 }
 
 func ShouldInterceptResponseFromContext(ctx context.Context) (bool, bool) {
-	shouldIntercept, ok := ctx.Value(interceptResponseKey).(bool)
-	return shouldIntercept, ok
+	value, ok := ctx.Value(interceptResponseKey).(bool)
+	return value, ok
 }
 
-// ResponseModifier is a proxy.ResponseModifyMiddleware for intercepting HTTP responses.
 func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.ResponseModifyFunc {
 	return func(res *http.Response) error {
-		// This is a blocking operation, that gets unblocked when either a modified response is returned or an error.
-		//nolint:bodyclose
-		modifiedRes, err := svc.InterceptResponse(res.Request.Context(), res)
+		modified, err := svc.InterceptResponse(res.Request.Context(), res)
 		if err != nil {
 			return fmt.Errorf("failed to intercept response: %w", err)
 		}
-
-		*res = *modifiedRes
-
+		*res = *modified
 		return next(res)
 	}
 }
 
-// InterceptResponse adds an HTTP response to an array of pending intercepted responses, alongside channels used for
-// sending a cancellation signal and receiving a modified response. It's safe for concurrent use.
+// InterceptResponse exclusively owns res while preparing its private snapshot.
+// The related request is reconstructed from GetBody, not its consumed live body.
 func (svc *Service) InterceptResponse(ctx context.Context, res *http.Response) (*http.Response, error) {
-	reqID, ok := proxy.RequestIDFromContext(ctx)
+	id, ok := proxy.RequestIDFromContext(ctx)
 	if !ok {
 		svc.logger.Errorw("Failed to intercept: context doesn't have an ID.")
 		return res, nil
 	}
-
-	shouldIntercept, ok := ShouldInterceptResponseFromContext(ctx)
-	if ok && !shouldIntercept {
-		// If the related request explicitly disabled response intercept, return the response as-is.
-		svc.logger.Debugw("Bypassed response interception: related request explicitly disabled response intercept.")
+	explicit, specified := ShouldInterceptResponseFromContext(ctx)
+	if specified && !explicit {
 		return res, nil
 	}
-
-	// If global response intercept is disabled and interception is *not* explicitly enabled for this response: bypass.
-	if !svc.responsesEnabled && !(ok && shouldIntercept) {
-		svc.logger.Debugw("Bypassed response interception: feature disabled.")
+	settings, version := svc.settingsSnapshot()
+	if !settings.ResponsesEnabled && !explicit {
 		return res, nil
 	}
-
-	if svc.resFilter != nil {
-		match, err := MatchResponseFilter(res, svc.resFilter)
-		if err != nil {
-			return nil, fmt.Errorf("intercept: failed to match response rules for response (id: %v): %w",
-				reqID.String(), err,
-			)
+	snapshot, err := captureResponse(res, nil)
+	if err != nil {
+		return nil, err
+	}
+	pending := &Response{snapshot: snapshot, ctx: ctx, ch: make(chan *http.Response, 1), abort: make(chan struct{})}
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
-
-		if !match {
-			svc.logger.Debugw("Bypassed response interception: response rules don't match.")
+		if !settings.ResponsesEnabled && !explicit {
 			return res, nil
 		}
+		if settings.ResponseFilter != nil {
+			match, err := MatchResponseFilter(snapshot.clone(), settings.ResponseFilter)
+			if err != nil {
+				return nil, fmt.Errorf("intercept: failed to match response filter (id: %v): %w", id, err)
+			}
+			if !match {
+				return res, nil
+			}
+		}
+		svc.mu.Lock()
+		if version != svc.version {
+			settings, version = svc.settings, svc.version
+			svc.mu.Unlock()
+			continue
+		}
+		svc.responses[id] = pending
+		svc.mu.Unlock()
+		break
 	}
-
-	ch := make(chan *http.Response)
-	done := make(chan struct{})
-
-	svc.resMu.Lock()
-	svc.responses[reqID] = Response{
-		res:  res,
-		ch:   ch,
-		done: done,
-	}
-	svc.resMu.Unlock()
 	svc.emit(sse.EventIntercepted)
-
-	// Whatever happens next (modified response returned, or a context cancelled error), any blocked channel senders
-	// should be unblocked, and the response should be removed from the responses queue.
 	defer func() {
-		close(done)
-		svc.resMu.Lock()
-		delete(svc.responses, reqID)
-		svc.resMu.Unlock()
+		svc.mu.Lock()
+		if svc.responses[id] == pending {
+			delete(svc.responses, id)
+		}
+		svc.mu.Unlock()
 		svc.emit(sse.EventIntercepted)
 	}()
-
 	select {
-	case modRes := <-ch:
-		if modRes == nil {
+	case modified := <-pending.ch:
+		if modified == nil {
 			return nil, ErrRequestAborted
 		}
-
-		return modRes, nil
+		return modified, nil
+	case <-pending.abort:
+		return nil, ErrRequestAborted
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
-// ModifyResponse sends a modified HTTP response to the related channel, or returns ErrRequestDone when the related
-// request was cancelled. It's safe for concurrent use.
-func (svc *Service) ModifyResponse(reqID ulid.ULID, modRes *http.Response) error {
-	svc.resMu.RLock()
-	res, ok := svc.responses[reqID]
-	svc.resMu.RUnlock()
-
+// ModifyResponse transfers an independent copy to the response writer. Caller
+// access to modRes must be exclusive for this call, as with ModifyRequest.
+func (svc *Service) ModifyResponse(id ulid.ULID, modRes *http.Response) error {
+	svc.mu.RLock()
+	pending, ok := svc.responses[id]
+	svc.mu.RUnlock()
 	if !ok {
 		return ErrRequestNotFound
 	}
-
+	var owned *http.Response
 	if modRes != nil {
-		modRes.Request = res.res.Request
+		snapshot, err := captureResponse(modRes, pending.snapshot.request)
+		if err != nil {
+			return err
+		}
+		owned = snapshot.clone()
 	}
-
-	select {
-	case <-res.done:
+	svc.mu.Lock()
+	if svc.responses[id] != pending || pending.ctx.Err() != nil {
+		svc.mu.Unlock()
 		return ErrRequestDone
-	case res.ch <- modRes:
-		return nil
 	}
+	pending.ch <- owned
+	delete(svc.responses, id)
+	svc.mu.Unlock()
+	svc.emit(sse.EventIntercepted)
+	return nil
 }
 
-// CancelResponse ensures an intercepted response is dropped.
-func (svc *Service) CancelResponse(reqID ulid.ULID) error {
-	return svc.ModifyResponse(reqID, nil)
+func (svc *Service) CancelResponse(id ulid.ULID) error {
+	return svc.ModifyResponse(id, nil)
 }

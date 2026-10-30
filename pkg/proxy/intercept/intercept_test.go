@@ -92,18 +92,9 @@ func TestRequestModifier(t *testing.T) {
 		modReq := req.Clone(req.Context())
 		modReq.Header.Set("X-Foo", "bar")
 
-		// Either error is a valid outcome here, not just ErrRequestDone: once
-		// cancel() fires, InterceptRequest's deferred cleanup does
-		// close(done) then delete(svc.requests, reqID) as two separate,
-		// unsynchronized-with-callers steps. A concurrent ModifyRequest can
-		// land before either (ErrRequestNotFound was already impossible,
-		// waitForPendingItem ruled that window out above), between them
-		// (ErrRequestDone), or after both (ErrRequestNotFound again) — this
-		// is a genuine, unavoidable race in that cleanup sequence, not a
-		// test synchronization bug. Confirmed by reading every real caller
-		// (pkg/api/resolvers.go): none distinguish the two errors, both are
-		// wrapped into the same generic "could not modify" response, so the
-		// distinction isn't a guarantee this codebase actually relies on.
+		// Cleanup can remove the item before this lookup (NotFound), or
+		// cancellation can be detected during mutation (Done). Both reject
+		// forwarding a cancelled request.
 		err := svc.ModifyRequest(reqID, modReq, nil)
 		if !errors.Is(err, intercept.ErrRequestDone) && !errors.Is(err, intercept.ErrRequestNotFound) {
 			t.Fatalf("expected `intercept.ErrRequestDone` or `intercept.ErrRequestNotFound`, got: %v", err)
@@ -224,9 +215,8 @@ func TestResponseModifier(t *testing.T) {
 		modRes.Header = make(http.Header)
 		modRes.Header.Set("X-Foo", "bar")
 
-		// See the "either error is a valid outcome" comment in
-		// TestRequestModifier's "modify request that's done" subtest above —
-		// same race, same reasoning, on the response side.
+		// As with requests, cancellation may be detected either during
+		// lookup or during mutation; both outcomes reject forwarding.
 		err := svc.ModifyResponse(reqID, &modRes)
 		if !errors.Is(err, intercept.ErrRequestDone) && !errors.Is(err, intercept.ErrRequestNotFound) {
 			t.Fatalf("expected `intercept.ErrRequestDone` or `intercept.ErrRequestNotFound`, got: %v", err)

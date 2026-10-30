@@ -1,10 +1,8 @@
 package intercept
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,17 +22,8 @@ var reqFilterKeyFns = map[string]func(req *http.Request) (string, error){
 	},
 	"method": func(req *http.Request) (string, error) { return req.Method, nil },
 	"body": func(req *http.Request) (string, error) {
-		if req.Body == nil {
-			return "", nil
-		}
-
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			return "", err
-		}
-
-		req.Body = io.NopCloser(bytes.NewBuffer(body))
-		return string(body), nil
+		body, err := requestBody(req)
+		return string(body), err
 	},
 }
 
@@ -54,19 +43,14 @@ var resFilterKeyFns = map[string]func(res *http.Response) (string, error){
 		if res.Body == nil {
 			return "", nil
 		}
-
-		body, err := io.ReadAll(res.Body)
-		if err != nil {
-			return "", err
-		}
-
-		res.Body = io.NopCloser(bytes.NewBuffer(body))
-
-		return string(body), nil
+		body, err := readOwnedBody(res.Body)
+		res.Body = bodyReader(body)
+		return string(body), err
 	},
 }
 
-// MatchRequestFilter returns true if an HTTP request matches the request filter expression.
+// MatchRequestFilter evaluates a caller-owned HTTP request. Access must be
+// exclusive; service item views provide an independent request for each reader.
 func MatchRequestFilter(req *http.Request, expr filter.Expression) (bool, error) {
 	switch e := expr.(type) {
 	case filter.PrefixExpression:
@@ -261,12 +245,10 @@ func MatchRequestScope(req *http.Request, s *scope.Scope) (bool, error) {
 		}
 
 		if rule.Body != nil {
-			body, err := io.ReadAll(req.Body)
+			body, err := requestBody(req)
 			if err != nil {
 				return false, fmt.Errorf("failed to read request body: %w", err)
 			}
-
-			req.Body = io.NopCloser(bytes.NewBuffer(body))
 
 			if matches := rule.Body.Match(body); matches {
 				return true, nil
@@ -277,7 +259,8 @@ func MatchRequestScope(req *http.Request, s *scope.Scope) (bool, error) {
 	return false, nil
 }
 
-// MatchResponseFilter returns true if an HTTP response matches the response filter expression.
+// MatchResponseFilter evaluates a caller-owned HTTP response. Access must be
+// exclusive; service item views provide an independent response for each reader.
 func MatchResponseFilter(res *http.Response, expr filter.Expression) (bool, error) {
 	switch e := expr.(type) {
 	case filter.PrefixExpression:

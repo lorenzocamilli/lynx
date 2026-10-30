@@ -55,18 +55,23 @@ const originBody = "hello from origin"
 
 // TestEndToEndRequestFlow proxies a real HTTP request through the full
 // modifier chain (reqlog -> intercept -> upstream, mirroring the
-// registration order in cmd/lynx/lynx.go), approves it out of the intercept
-// queue the same way a GraphQL mutation would, confirms both the request and
+// registration order in cmd/lynx/lynx.go), approves both request and response
+// out of the intercept queue the same way GraphQL mutations would, confirms the request and
 // (asynchronously stored) response were logged, then clones the logged
 // request into Sender and replays it, confirming Sender gets an independent
 // response from the same origin.
 func TestEndToEndRequestFlow(t *testing.T) {
 	ctx := context.Background()
 
-	var gotPath string
+	var gotPath, gotBody string
 
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		gotBody = string(body)
 
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusTeapot)
@@ -107,9 +112,9 @@ func TestEndToEndRequestFlow(t *testing.T) {
 		t.Fatalf("OpenProject failed: %v", err)
 	}
 
-	// Enable request interception through the same path the admin UI uses,
+	// Enable request/response interception through the same path the admin UI uses,
 	// so this exercises proj -> intercept wiring too, not just proxy -> reqlog.
-	if err := projSvc.UpdateInterceptSettings(ctx, intercept.Settings{RequestsEnabled: true}); err != nil {
+	if err := projSvc.UpdateInterceptSettings(ctx, intercept.Settings{RequestsEnabled: true, ResponsesEnabled: true}); err != nil {
 		t.Fatalf("UpdateInterceptSettings failed: %v", err)
 	}
 
@@ -124,13 +129,14 @@ func TestEndToEndRequestFlow(t *testing.T) {
 	}
 
 	// Registration order mirrors cmd/lynx/lynx.go exactly: reqlog outermost,
-	// intercept innermost, so a paused request has already been logged.
+	// intercept innermost. The logger stores after the intercept returns.
 	p.UseRequestModifier(reqLogSvc.RequestModifier)
 	p.UseResponseModifier(reqLogSvc.ResponseModifier)
 	p.UseRequestModifier(interceptSvc.RequestModifier)
 	p.UseResponseModifier(interceptSvc.ResponseModifier)
 
-	req := httptest.NewRequest(http.MethodGet, origin.URL+"/foo?bar=baz", nil)
+	const requestBody = "request payload"
+	req := httptest.NewRequest(http.MethodPost, origin.URL+"/foo?bar=baz", strings.NewReader(requestBody))
 	req.Header.Set("X-Test-Header", "integration")
 
 	rec := httptest.NewRecorder()
@@ -161,6 +167,28 @@ func TestEndToEndRequestFlow(t *testing.T) {
 		t.Fatalf("ModifyRequest failed: %v", err)
 	}
 
+	waitFor(t, 2*time.Second, func() bool {
+		items := interceptSvc.Items()
+		return len(items) == 1 && items[0].Response != nil
+	})
+	responseView, err := interceptSvc.ItemByID(reqID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	capturedRequest, err := io.ReadAll(responseView.Response.Request.Body)
+	if err != nil || string(capturedRequest) != requestBody {
+		t.Fatalf("response inspection lost sent request body: %q, %v", capturedRequest, err)
+	}
+	// Read a fresh view for forwarding: inspecting a UI view cannot consume
+	// the immutable queued body or another caller's view.
+	responseView, err = interceptSvc.ItemByID(reqID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := interceptSvc.ModifyResponse(reqID, responseView.Response); err != nil {
+		t.Fatal(err)
+	}
+
 	select {
 	case <-served:
 	case <-time.After(2 * time.Second):
@@ -179,8 +207,8 @@ func TestEndToEndRequestFlow(t *testing.T) {
 		t.Fatalf("origin received path %q, want %q", gotPath, "/foo")
 	}
 
-	// The request log is written synchronously (before intercept unblocks
-	// next()), but the response log is stored by a background goroutine.
+	// The request log is written synchronously after request interception
+	// unblocks, but the response log is stored by a background goroutine.
 	var reqLogs []reqlog.RequestLog
 
 	waitFor(t, 2*time.Second, func() bool {
@@ -194,8 +222,11 @@ func TestEndToEndRequestFlow(t *testing.T) {
 
 	reqLog := reqLogs[0]
 
-	if reqLog.Method != http.MethodGet {
-		t.Errorf("logged Method = %q, want %q", reqLog.Method, http.MethodGet)
+	if reqLog.Method != http.MethodPost {
+		t.Errorf("logged Method = %q, want %q", reqLog.Method, http.MethodPost)
+	}
+	if gotBody != requestBody || string(reqLog.Body) != requestBody {
+		t.Fatalf("request body changed in transit or storage: origin=%q, log=%q", gotBody, reqLog.Body)
 	}
 
 	if reqLog.URL.Path != "/foo" || reqLog.URL.RawQuery != "bar=baz" {
