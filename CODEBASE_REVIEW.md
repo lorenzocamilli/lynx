@@ -94,12 +94,32 @@ Scope getters/setters now copy their slices and in-flight operations retain an
 independent scope. Compiled regexes and search-expression ASTs are treated as
 immutable after configuration.
 
-**Still outstanding in #23:** `pkg/proxy/intercept/intercept.go` reads enabled
-flags and filters without a settings lock, and exposes live request/response
-pointers. API serialization and body filters can read/replace those same bodies
-(`pkg/api/resolvers.go`, `pkg/proxy/intercept/filter.go`). The coordinator above
-does not synchronize interception's own readers or solve body ownership. Add
-multiple-reader/interception-settings tests and owned body snapshots there.
+Issue #23 is implemented locally: interception settings and both pending queues
+share a mutex. Admissions prepare/filter bodies without holding it, then validate
+a settings version under the lock; a disable during preparation cannot enqueue
+stale work afterward. Queue clearing closes abort channels without waiting for
+receivers. Mutation resolution and removal are serialized under the same lock,
+with a single buffered handoff so only one competing action can win.
+
+Pending queues retain private snapshots, not the live forwarding objects.
+`Items`/`ItemByID` return independent headers/URLs and body readers, including the
+request attached to a response. Mutations hand off independent copies; caller
+access during a mutation must be exclusive. Filter helpers consume caller-owned
+views and close a consumed original body when replacing it with replayable bytes.
+Capture failures cancel request forwarding without losing request context values.
+
+When response interception is enabled before sending, request bodies are made
+replayable for later response inspection. If interception is enabled only after
+a request was sent and no `GetBody` is available, its consumed request body is
+unavailable: response inspection returns metadata, never a live/closed stream.
+Contexts, TLS/certificate metadata, compiled regexes and filter ASTs remain
+read-only by contract. The service does not make concurrent mutation of a
+caller's same HTTP object safe.
+
+**Resource policy remains #32:** pending bodies are buffered in memory before
+publication. There are still no inspection/replay body-size or queue-count caps;
+this ownership fix does not claim bounded memory or solve slow body reads. No
+state lock is held during body I/O or while waiting for user action.
 
 ### 2. Dependency remediation — release decision required
 
@@ -207,3 +227,39 @@ concurrent project switching, Sender state access, explicit-project cloning,
 in-flight send persistence, scope ownership, and query admission during a partial
 project transition. GitHub status remains In review until the local changes are
 reviewed and merged; this is not a claim that the release blockers are all fixed.
+
+### Issue #23 follow-up verification
+
+Before the fix, tests reproduced shared pending-body/header mutation, stale
+admission after disabling during body preparation, and settings data races.
+Regression coverage now includes concurrent request/response views and API
+serialization during forwarding, competing clear/cancel/forward actions,
+response overrides, body closure/capture errors and response-phase inspection
+of a request already consumed by Transport. The real proxy integration test
+now approves both phases of a POST and verifies the sent/logged/replayed bodies.
+Focused race tests were repeated 20 times. This work remains local and in review;
+interactive browser and resource-limit behavior are not claimed verified.
+
+### Issue #43 — HTTP protocol upgrades
+
+A local integration regression reproduced a `502` instead of the expected `101`
+when response logging was active. Ordinary body capture replaced the upgraded
+bidirectional stream with a read-only body; interception also consumed/closed
+it, and gzip handling could try to decode protocol bytes as an HTTP document.
+
+These paths now recognize `101 Switching Protocols`. Decompression and response
+interception bypass it (including explicit response overrides); logging/parser
+paths retain handshake metadata only, without reading, closing or replacing the
+live stream. Request-phase interception remains available. The README documents
+that upgraded messages/WebSocket frames are not captured or editable and that
+a handshake's zero logged body size does not measure stream traffic.
+
+Regression coverage uses real TCP connections and a local HTTP upgrade server,
+with a greeting and repeated client-to-server/server-to-client exchanges. The
+27-case matrix covers logging with/without an active project, response settings
+and explicit overrides, request-phase approval, gzip headers, client closure,
+proxy-context cancellation and upstream closure. Unit tests check untouched
+stream ownership, write capability, metadata/redaction/project ownership and
+standalone response parsing. This is transport-level upgrade coverage, not an
+interactive browser or WebSocket frame-protocol conformance test. Resource
+limits (#32), CA onboarding (#44) and review/merge remain separate release work.

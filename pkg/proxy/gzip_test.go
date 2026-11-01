@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -52,5 +53,25 @@ func TestGunzipResponseBodyStreamsAndClosesUpstream(t *testing.T) {
 	}
 	if !original.closed {
 		t.Fatal("upstream body was not closed")
+	}
+}
+
+func TestGunzipDoesNotReadUpgradeStream(t *testing.T) {
+	original := &closeTrackingBody{Reader: strings.NewReader("not gzip: a live protocol stream")}
+	res := &http.Response{
+		StatusCode:    http.StatusSwitchingProtocols,
+		Body:          original,
+		Header:        http.Header{"Content-Encoding": {"gzip"}, "Content-Length": {"123"}},
+		ContentLength: 123,
+	}
+	if err := gunzipResponseBody(res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Body != original || original.closed || res.Header.Get("Content-Encoding") != "gzip" || res.ContentLength != 123 {
+		t.Fatal("upgrade stream or framing metadata changed")
+	}
+	data, err := io.ReadAll(res.Body)
+	if err != nil || string(data) != "not gzip: a live protocol stream" {
+		t.Fatalf("upgrade bytes were consumed: %q, %v", data, err)
 	}
 }

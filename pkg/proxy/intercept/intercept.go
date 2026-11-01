@@ -351,6 +351,12 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 // InterceptResponse exclusively owns res while preparing its private snapshot.
 // The related request is reconstructed from GetBody, not its consumed live body.
 func (svc *Service) InterceptResponse(ctx context.Context, res *http.Response) (*http.Response, error) {
+	// Protocol upgrades are live bidirectional streams. Bypass even an
+	// explicit response override: snapshotting would consume/close the
+	// connection and lose Write, breaking ReverseProxy's upgrade handoff.
+	if res.StatusCode == http.StatusSwitchingProtocols {
+		return res, nil
+	}
 	id, ok := proxy.RequestIDFromContext(ctx)
 	if !ok {
 		svc.logger.Errorw("Failed to intercept: context doesn't have an ID.")

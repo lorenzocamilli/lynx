@@ -150,3 +150,65 @@ func TestRequestKeepsProjectAcrossNextModifier(t *testing.T) {
 		t.Fatalf("request stored in %v, want its initial project %v", repo.request.ProjectID, a)
 	}
 }
+
+// Reading or closing this stream before ReverseProxy takes over is a bug.
+type upgradeBody struct {
+	t      *testing.T
+	closed bool
+}
+
+func (b *upgradeBody) Read([]byte) (int, error) {
+	b.t.Error("attempted to read upgraded stream as a response document")
+	return 0, io.EOF
+}
+func (b *upgradeBody) Write(p []byte) (int, error) { return len(p), nil }
+func (b *upgradeBody) Close() error {
+	b.closed = true
+	return nil
+}
+
+func TestUpgradeLogsMetadataWithoutTouchingStream(t *testing.T) {
+	projectID := ulid.ULID{1}
+	repo := &captureRepository{response: make(chan responseWrite, 1)}
+	svc := NewService(Config{Repository: repo, ActiveProjectID: projectID, RedactHeaders: []string{"Secret"}})
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/upgrade", nil)
+	req = req.WithContext(proxy.WithRequestID(req.Context(), ulid.ULID{2}))
+	svc.RequestModifier(func(*http.Request) {})(req)
+	svc.SetActiveProjectID(ulid.ULID{3})
+	stream := &upgradeBody{t: t}
+	res := &http.Response{
+		Request: req, Body: stream, StatusCode: http.StatusSwitchingProtocols,
+		Status: "101 Switching Protocols", Proto: "HTTP/1.1",
+		Header: http.Header{"Connection": {"Upgrade"}, "Upgrade": {"websocket"}, "Secret": {"value"}, "Content-Encoding": {"gzip"}},
+	}
+	called := false
+	if err := svc.ResponseModifier(func(*http.Response) error { called = true; return nil })(res); err != nil {
+		t.Fatal(err)
+	}
+	if !called || res.Body != stream || stream.closed || res.Header.Get("Secret") != "value" {
+		t.Fatal("logger changed upgraded stream or live headers, or skipped the next middleware")
+	}
+	select {
+	case stored := <-repo.response:
+		if stored.projectID != projectID || stored.log.StatusCode != 101 || len(stored.log.Body) != 0 || stored.log.Size != 0 || stored.log.Header.Get("Upgrade") != "websocket" || stored.log.Header.Get("Secret") != redactMask || stored.log.Header.Get("Content-Encoding") != "gzip" {
+			t.Fatalf("wrong upgrade metadata: %+v", stored)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("metadata logging waited on stream closure")
+	}
+	if _, ok := res.Body.(io.ReadWriteCloser); !ok {
+		t.Fatal("upgrade lost write capability")
+	}
+	if err := res.Body.Close(); err != nil || !stream.closed {
+		t.Fatal("connection owner could not close original stream")
+	}
+}
+
+func TestParseUpgradeResponseDoesNotReadStream(t *testing.T) {
+	stream := &upgradeBody{t: t}
+	res := &http.Response{StatusCode: http.StatusSwitchingProtocols, Body: stream, Header: http.Header{"Content-Encoding": {"gzip"}}}
+	log, err := ParseHTTPResponse(res)
+	if err != nil || len(log.Body) != 0 || log.Size != 0 || stream.closed || log.Header.Get("Content-Encoding") != "gzip" {
+		t.Fatalf("parsing upgrade metadata: %+v, %v", log, err)
+	}
+}

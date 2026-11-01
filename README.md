@@ -80,6 +80,19 @@ Runtime settings (port, host, log level, body-size cap, redacted headers)
 live in `~/.lynx/config.yaml` and are editable at runtime from the Settings
 page; most changes need a restart to take effect.
 
+## Protocol upgrades and WebSockets
+
+Lynx forwards HTTP `101 Switching Protocols` connections bidirectionally. The
+initial handshake request can be intercepted normally, but a successful upgrade
+response bypasses response interception and body decompression/capture, even
+when response interception is explicitly enabled for that request. A rejected
+upgrade (a non-`101` response) follows the normal HTTP response path.
+
+When logging is active, Lynx records the handshake status and headers with an
+empty response body and size zero; that size does **not** measure upgraded
+traffic. WebSocket frames and other upgraded-protocol messages are not captured
+or editable in Intercept or Sender.
+
 ## Data storage & threat model
 
 All data is stored under `~/.lynx/`:

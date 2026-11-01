@@ -305,7 +305,11 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 		clone := *res
 		clone.Header = res.Header.Clone()
 
-		if res.Body != nil {
+		// Upgrades carry a live io.ReadWriteCloser, not a finite body. Log
+		// handshake metadata only, leaving the stream owned by ReverseProxy.
+		if res.StatusCode == http.StatusSwitchingProtocols {
+			clone.Body = nil
+		} else if res.Body != nil {
 			body, restored, err := captureBody(res.Body, svc.maxBodyBytes)
 			res.Body = restored
 			if err != nil {
@@ -376,12 +380,15 @@ func (svc *Service) BypassOutOfScopeRequests() bool {
 }
 
 func ParseHTTPResponse(res *http.Response) (ResponseLog, error) {
+	// Standalone callers (including Sender) must not consume an upgraded
+	// connection either. A 101 log represents the handshake, never frames.
+	upgraded := res.StatusCode == http.StatusSwitchingProtocols
 	var bodyReader io.Reader = http.NoBody
-	if res.Body != nil {
+	if !upgraded && res.Body != nil {
 		bodyReader = res.Body
 	}
 
-	if res.Header.Get("Content-Encoding") == "gzip" {
+	if !upgraded && res.Header.Get("Content-Encoding") == "gzip" {
 		gzipReader, err := gzip.NewReader(res.Body)
 		if err != nil {
 			return ResponseLog{}, fmt.Errorf("reqlog: could not create gzip reader: %w", err)
@@ -396,7 +403,9 @@ func ParseHTTPResponse(res *http.Response) (ResponseLog, error) {
 	}
 
 	header := res.Header.Clone()
-	header.Del("Content-Encoding")
+	if !upgraded {
+		header.Del("Content-Encoding")
+	}
 
 	return ResponseLog{
 		Proto:      res.Proto,

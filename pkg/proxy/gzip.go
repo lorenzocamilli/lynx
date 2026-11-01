@@ -20,7 +20,9 @@ func (b *gzipBody) Close() error {
 }
 
 func gunzipResponseBody(res *http.Response) error {
-	if res.Header.Get("Content-Encoding") != "gzip" {
+	// A 101 body is the upgraded bidirectional connection, not an encoded
+	// HTTP document. ReverseProxy must retain the original stream.
+	if res.StatusCode == http.StatusSwitchingProtocols || res.Header.Get("Content-Encoding") != "gzip" {
 		return nil
 	}
 
