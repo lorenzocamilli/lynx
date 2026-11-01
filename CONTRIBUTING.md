@@ -32,7 +32,7 @@ maintainers have envisioned.
 
 ## Development
 
-Install Go 1.25+, Node.js 20+, and a C compiler (required by Go's race
+Install Go 1.26.10+, Node.js 20+, and a C compiler (required by Go's race
 detector), then run:
 
 ```bash
@@ -49,4 +49,8 @@ go test -tags noembed ./cmd/... ./pkg/...
 
 Frontend type-checking also rejects unused locals and parameters. Keep generated
 GraphQL files in sync with their schemas rather than editing generated code by
-hand. See `CODEBASE_REVIEW.md` for the current release-readiness findings.
+hand. Run `go generate ./pkg/api` from the repository root after schema changes.
+The generator preserves the handwritten resolver file; add implementations for
+new fields there, then regenerate. Run
+`go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 -tags noembed ./cmd/... ./pkg/...`
+for the blocking Go vulnerability check. See `CODEBASE_REVIEW.md` for the current release-readiness findings.

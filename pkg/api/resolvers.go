@@ -746,7 +746,7 @@ func parseSenderRequest(req sender.Request) (SenderRequest, error) {
 		ID:        req.ID,
 		URL:       req.URL,
 		Method:    method,
-		Proto:     HTTPProtocol(req.Proto),
+		Proto:     reqProto,
 		Timestamp: ulid.Time(req.ID.Time()),
 	}
 

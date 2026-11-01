@@ -245,7 +245,7 @@ func (e HTTPMethod) String() string {
 	return string(e)
 }
 
-func (e *HTTPMethod) UnmarshalGQL(v interface{}) error {
+func (e *HTTPMethod) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
@@ -259,7 +259,7 @@ func (e *HTTPMethod) UnmarshalGQL(v interface{}) error {
 }
 
 func (e HTTPMethod) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }
 
 type HTTPProtocol string
@@ -288,7 +288,7 @@ func (e HTTPProtocol) String() string {
 	return string(e)
 }
 
-func (e *HTTPProtocol) UnmarshalGQL(v interface{}) error {
+func (e *HTTPProtocol) UnmarshalGQL(v any) error {
 	str, ok := v.(string)
 	if !ok {
 		return fmt.Errorf("enums must be strings")
@@ -302,5 +302,5 @@ func (e *HTTPProtocol) UnmarshalGQL(v interface{}) error {
 }
 
 func (e HTTPProtocol) MarshalGQL(w io.Writer) {
-	fmt.Fprint(w, strconv.Quote(e.String()))
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
 }

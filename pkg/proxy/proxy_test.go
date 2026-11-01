@@ -3,6 +3,7 @@ package proxy_test
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -193,4 +194,53 @@ func equalStrings(a, b []string) bool {
 	}
 
 	return true
+}
+
+func TestRewritePreservesRawQueryAndEditedHeaders(t *testing.T) {
+	for _, editQuery := range []bool{false, true} {
+		t.Run(fmt.Sprintf("editQuery=%t", editQuery), func(t *testing.T) {
+			const rawQuery = "encoded=a%26b&invalid=%zz&semicolon=a;b"
+			wantQuery := rawQuery
+			if editQuery {
+				wantQuery = "edited=a%2Fb"
+			}
+			origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.RawQuery != wantQuery {
+					t.Errorf("raw query = %q, want %q", r.URL.RawQuery, wantQuery)
+				}
+				if r.Header.Get("X-Test-Edit") != "edited" || r.Header.Get("Connection") != "" {
+					t.Errorf("edited/hop-by-hop headers: %v", r.Header)
+				}
+				for _, key := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto"} {
+					if r.Header.Get(key) != "" {
+						t.Errorf("untrusted %s survived: %v", key, r.Header)
+					}
+				}
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer origin.Close()
+			p := newTestProxy(t)
+			p.UseRequestModifier(func(next proxy.RequestModifyFunc) proxy.RequestModifyFunc {
+				return func(req *http.Request) {
+					req.Header.Set("X-Test-Edit", "edited")
+					if editQuery {
+						req.URL.RawQuery = wantQuery
+					}
+					next(req)
+				}
+			})
+			req := httptest.NewRequest(http.MethodGet, origin.URL+"/?"+rawQuery, nil)
+			// Hop-by-hop stripping must happen before trusted middleware edits,
+			// so the client cannot nominate and remove an edited header.
+			req.Header.Set("Connection", "X-Test-Edit")
+			for _, key := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto"} {
+				req.Header.Set(key, "untrusted")
+			}
+			rec := httptest.NewRecorder()
+			p.ServeHTTP(rec, req)
+			if rec.Code != http.StatusNoContent {
+				t.Fatalf("status = %d", rec.Code)
+			}
+		})
+	}
 }

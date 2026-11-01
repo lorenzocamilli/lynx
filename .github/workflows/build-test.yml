@@ -1,17 +1,21 @@
 name: Build and Test
 on: [push, pull_request]
+env:
+  # Each lane must use its selected toolchain, never silently upgrade it.
+  GOTOOLCHAIN: local
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.24", "1.25"]
+        go: ["1.26", "1.27"]
     name: Go ${{ matrix.go }} - Build
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
         with:
           go-version: ${{ matrix.go }}
+          check-latest: true
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "20"
@@ -34,13 +38,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: ["1.24", "1.25"]
+        go: ["1.26", "1.27"]
     name: Go ${{ matrix.go }} - Test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
         with:
           go-version: ${{ matrix.go }}
+          check-latest: true
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
@@ -55,10 +60,10 @@ jobs:
       - run: go test -tags noembed -coverprofile=coverage.out -covermode=atomic ./cmd/... ./pkg/...
       - run: go tool cover -func=coverage.out
       # Coverage is only meaningfully comparable across a single Go version;
-      # upload once (matrix.go == "1.25", the project's primary version) to
+      # upload once (matrix.go == "1.26", the project's primary version) to
       # avoid two profiles silently overwriting each other under the same
       # artifact name.
-      - if: matrix.go == '1.25'
+      - if: matrix.go == '1.26'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report
@@ -70,7 +75,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
         with:
-          go-version: "1.25"
+          go-version: "1.26"
+          check-latest: true
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
@@ -83,21 +89,13 @@ jobs:
   govulncheck:
     runs-on: ubuntu-latest
     name: Go - Vulnerability Check
-    # Non-blocking for now: govulncheck reports GO-2024-2920 (a DoS in gqlparser)
-    # reachable only via the localhost- and token-bound admin GraphQL API. It is
-    # pulled in through the pinned gqlgen v0.14; the real fix is the gqlgen
-    # v0.14 -> v0.17 upgrade (tracked in PLAN.md, "F1"). Until then the job still
-    # runs and surfaces findings but does not fail the pipeline.
-    continue-on-error: true
+    # Dependency advisories remediated in #24; findings must block the build.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
         with:
-          go-version: "1.25"
-          # Always resolve the newest 1.25.x patch release instead of the
-          # runner's preinstalled toolchain, so stdlib vulnerabilities fixed
-          # in patch releases (e.g. GO-2026-5856 in crypto/tls, fixed in
-          # 1.25.12) don't show up as findings against an outdated stdlib.
+          go-version: "1.26"
+          # Use patched toolchains; Go 1.25 has unremediated stdlib findings.
           check-latest: true
-      - run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
       - run: govulncheck -tags noembed ./cmd/... ./pkg/...

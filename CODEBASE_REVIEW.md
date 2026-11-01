@@ -121,24 +121,27 @@ publication. There are still no inspection/replay body-size or queue-count caps;
 this ownership fix does not claim bounded memory or solve slow body reads. No
 state lock is held during body I/O or while waiting for user action.
 
-### 2. Dependency remediation — release decision required
+### 2. Dependency remediation — Go fixed; frontend review remains
 
-Actual scan results from this pass:
+Issue #24 upgrades `gqlgen` from v0.14.0 to v0.17.98 and `gqlparser/v2` from
+v2.2.0 to v2.5.64. The old Gorilla WebSocket v1.4.2 dependency is no longer
+in the module graph. The initial GO-2024-2920 and GO-2026-6278 findings are
+therefore remediated, not waived behind localhost/admin authentication.
 
-- `govulncheck` reports **GO-2024-2920** in `gqlparser/v2@v2.2.0` (fixed in
-  `v2.5.14`) and **GO-2026-6278** in `gorilla/websocket@v1.4.2` (fixed in
-  `v1.5.3`) as symbol-level findings. Reachability is the scanner's result, not
-  proof of practical exploitation in Lynx. GraphQL is behind admin auth.
-- After removing unused dependencies, online `npm audit --omit=dev` reports
-  **4 affected packages**: `next` (critical), `sharp` (high), `source-map-js`
-  (high), and `baseline-browser-mapping` (moderate). Several advisories concern
-  Next.js server functionality absent from the shipped Go/static-export runtime;
-  development/Next-server deployment exposure must be assessed separately.
+A separate scan against Go 1.25.14 found 13 symbol-level standard-library
+findings, including GO-2026-6809 in certificate verification. The minimum
+build toolchain is now **Go 1.26.10**; CI, release configuration, Docker and
+build documentation are aligned. `govulncheck` finds no vulnerabilities with
+the upgraded dependency graph on Go 1.26.10. Go 1.25 was functionally tested
+but is no longer an accepted release toolchain. Reachability reported by a
+scanner is not itself proof of practical exploitation in Lynx.
 
-Upgrade compatible dependencies and test GraphQL regeneration and actual UI
-operations. Do not apply a blanket force-update or call every npm severity a
-confirmed vulnerability in the embedded binary. Offline npm installation's
-"0 vulnerabilities" output is **not** an online security scan.
+The last online frontend audit reported `next` (critical), `sharp` and
+`source-map-js` (high), and `baseline-browser-mapping` (moderate). Issue #25
+still requires a fresh scan/remediation. Some findings concern Next.js server
+functionality absent from the shipped Go/static-export runtime; build/dev
+exposure needs separate assessment. Offline npm installation's "0 vulnerabilities"
+output is **not** an online security scan or frontend release approval.
 
 ### 3. Admin boundary and token handling — high priority review
 
@@ -263,3 +266,37 @@ stream ownership, write capability, metadata/redaction/project ownership and
 standalone response parsing. This is transport-level upgrade coverage, not an
 interactive browser or WebSocket frame-protocol conformance test. Resource
 limits (#32), CA onboarding (#44) and review/merge remain separate release work.
+
+### Issue #24 — dependency and GraphQL compatibility verification
+
+The parser-only upgrade was not source-compatible with gqlgen v0.14.0, so the
+runtime and generated executable code were upgraded together. The GraphQL
+schema is unchanged. Generation now preserves handwritten resolvers and the
+existing generated model/JSON shape. Repeated generation leaves code and module
+files unchanged. Explicit HTTP-server configuration preserves the existing POST
+transports, query cache, introspection and automatic persisted queries without
+calling gqlgen's deprecated example server constructor.
+
+HTTP-level tests cover project creation/opening, settings/filter ASTs, scope
+regex scalars, stored request/response logs, Sender clone/edit/query, intercepted
+request query/edit, enums/IDs/URLs/timestamps, named operations, fragments,
+variable defaults, directives, malformed input and persisted-query cache replay.
+They reopen BoltDB and also load a synthetic database created by the actual
+pre-upgrade commit 974aee5 (fixture provenance is in `pkg/api/testdata/README.md`).
+A pre-existing Sender protocol conversion bug discovered by these tests now
+returns the validated GraphQL enum rather than its HTTP wire string.
+
+The Go 1.26 baseline also deprecates `ReverseProxy.Director`. The proxy uses
+`Rewrite` instead, retaining raw query bytes (including malformed query syntax)
+before applying trusted interception edits. Regression tests verify that client
+hop-by-hop nominations cannot strip middleware-added headers, incoming spoofed
+Forwarded/X-Forwarded headers are stripped and query edits remain effective.
+The full HTTP upgrade matrix still passes on this modifier order.
+
+The complete race suite passes on Go 1.26.10 and Go 1.27.3; the former Go 1.25.14
+baseline also passed functional/race tests before being rejected by its separate
+standard-library scan. The vulnerability CI job is blocking again and the build
+matrix targets Go 1.26/1.27 with current patch releases. Interactive browser
+workflows, remote CI execution, container runtime/platform builds and frontend
+advisory remediation are not claimed verified by this change. Legacy golangci-lint
+v1 configuration/tool migration remains part of the release-tooling review (#39).

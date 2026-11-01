@@ -23,6 +23,13 @@ resolver:
   filename: pkg/api/resolvers.go
   dir: pkg/api
   package: api
+  # This file also contains service wiring and handwritten conversion helpers.
+  preserve_resolver: true
+
+# Preserve the existing generated model shape and JSON representation.
+enable_model_json_omitempty_tag: false
+omit_root_models: true
+omit_enum_json_marshalers: true
 
 # Optional: turn on use `gqlgen:"fieldName"` tags in your models
 # struct_tag: json

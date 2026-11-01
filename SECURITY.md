@@ -87,13 +87,23 @@ latest minor release line, following semver.
   permission to intercept is a legal and ethical issue, not a Lynx security
   bug.
 
-### Known accepted risk
+### Go dependencies and build toolchain
 
-`govulncheck` reports `GO-2024-2920`, a denial-of-service in `gqlparser`
-(pulled in transitively via a pinned `gqlgen v0.14`). It is reachable only
-through the admin GraphQL endpoint, which is already localhost-bound and
-token-protected. It's tracked for a fix via a `gqlgen` upgrade; until then the
-CI vulnerability-check job reports it non-blockingly rather than hiding it.
+The former `gqlparser` denial-of-service finding (`GO-2024-2920`) is remediated
+by the gqlgen/parser upgrade in issue #24. The same upgrade removes the old
+Gorilla WebSocket dependency associated with `GO-2026-6278`. Go vulnerability
+scanning is a blocking CI check, not an accepted-risk exception.
+
+Build with **Go 1.26.10 or newer**, using current security patches for a
+supported Go release. A scan of Go 1.25.14 still reports standard-library
+findings, including `GO-2026-6809` in certificate verification (fixed in
+1.26.10); passing unit tests does not make that older toolchain appropriate
+for release. The minimum is enforced in `go.mod`, and release/Docker builders
+are aligned with it.
+
+A clean dependency scan is point-in-time evidence, not a security guarantee.
+Frontend dependency findings and broader release hardening are tracked
+separately; see `CODEBASE_REVIEW.md` and the release roadmap.
 
 ### Cryptographic choices
 

@@ -43,8 +43,8 @@ tag ships.
 
 ### Prerequisites
 
-- Go 1.25+ (`go.mod`'s directive; an older toolchain with network access
-  will auto-fetch 1.25 via Go's toolchain mechanism)
+- Go 1.26.10+ (minimum patched toolchain required by `go.mod`; older Go
+  installations with automatic toolchain downloads enabled can fetch it)
 - Node.js 20+ (for building the admin UI)
 
 ### Build

@@ -86,8 +86,14 @@ func NewProxy(cfg Config) (*Proxy, error) {
 	}
 
 	p.handler = &httputil.ReverseProxy{
-		Transport:      transport,
-		Director:       p.modifyRequest,
+		Transport: transport,
+		Rewrite: func(r *httputil.ProxyRequest) {
+			// Lynx inspects/proxies raw traffic; query bytes are not used for
+			// authorization. Preserve malformed/ambiguous queries instead of
+			// Rewrite's default normalization, before user edits are applied.
+			r.Out.URL.RawQuery = r.In.URL.RawQuery
+			p.modifyRequest(r.Out)
+		},
 		ModifyResponse: p.modifyResponse,
 		ErrorHandler:   p.errorHandler,
 	}

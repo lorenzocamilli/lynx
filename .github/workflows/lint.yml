@@ -22,7 +22,8 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@7b8cf10d4e4a01d4992d18a89f4d7dc5a3e6d6f4 # v4.3.0
         with:
-          go-version: "1.25"
+          go-version: "1.26"
+          check-latest: true
       - uses: golangci/golangci-lint-action@55c2c1448f86e01eaae002a5a3a9624417608d84 # v6.5.2
         with:
           # Pinned to the final v1 release (matches the v1 config schema).
@@ -30,7 +31,7 @@ jobs:
           # Build golangci-lint from source with this job's Go toolchain instead
           # of downloading the prebuilt binary: the released v1.64.8 binary is
           # compiled with Go 1.24 and refuses to run against a module whose go
-          # directive is 1.25 ("build Go version lower than targeted"). Migrating
+          # directive is 1.26.10 ("build Go version lower than targeted"). Migrating
           # to golangci-lint v2 (whose binaries are built with newer Go) is
           # tracked in PLAN.md.
           install-mode: goinstall
